@@ -1,0 +1,101 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>File Redaction Demo</title>
+  <style>body{font-family:Arial;padding:20px;max-width:800px;margin:auto}label{display:block;margin-top:10px}</style>
+</head>
+<body>
+  <h1>File Redaction Demo</h1>
+  <link rel="stylesheet" href="/static/styles.css" />
+  <p>Pick a file type and upload. This demo sends the file to the backend for redaction.</p>
+
+  <h2>Image / PDF</h2>
+  <label>File: <input id="file1" type="file" /></label>
+  <div style="display:flex;gap:12px;align-items:flex-start;">
+    <div style="flex:1;min-width:320px">
+      <label>Canvas Selector (images only)</label>
+      <div style="border:1px solid #ccc;display:inline-block;">
+        <canvas id="selectorCanvas" style="max-width:100%;display:block;background:#fff"></canvas>
+      </div>
+      <div style="margin-top:6px">
+        <button id="clearRects">Clear</button>
+        <button id="delRect">Delete Last</button>
+      </div>
+    </div>
+    <div style="width:320px">
+      <label>Regions JSON (manual): <input id="regions" placeholder='e.g. [[10,10,100,50]] or [{"page":0,"rect":[10,10,100,50]}]' style="width:100%" /></label>
+      <label>Mode: <select id="mode"><option value="blackout">blackout</option><option value="blur">blur</option></select></label>
+      <div style="margin-top:6px">
+        <button onclick="sendImage()">Redact (image/pdf)</button>
+      </div>
+    </div>
+  </div>
+
+  <h2>DOCX / XLSX</h2>
+  <label>File: <input id="file2" type="file" /></label>
+  <label>Phrases (JSON list): <input id="phrases" placeholder='e.g. ["secret","John Doe"]' style="width:100%" /></label>
+  <label>Cells (JSON list): <input id="cells" placeholder='e.g. ["A1","B2"]' style="width:100%" /></label>
+  <label>Columns (JSON list): <input id="columns" placeholder='e.g. ["C","D"] or [3]' style="width:100%" /></label>
+  <button onclick="sendDoc()">Redact (docx/xlsx)</button>
+
+  <script>
+  // selector helper will be injected by /static/js/selector.js
+  async function sendImage(){
+    const f = document.getElementById('file1').files[0];
+    if(!f) return alert('pick file');
+    const regionsManual = document.getElementById('regions').value;
+    let regions = [];
+    if(!f.name.toLowerCase().endsWith('.pdf')){
+      try{ regions = window.selector.getRegions() || []; }catch(e){ regions = []; }
+      if((!regions || regions.length==0) && regionsManual) regions = JSON.parse(regionsManual);
+    } else {
+      regions = regionsManual ? JSON.parse(regionsManual) : [];
+    }
+    const mode = document.getElementById('mode').value;
+    const url = f.name.endsWith('.pdf')?'/redact/pdf':'/redact/image';
+    const fd = new FormData();
+    fd.append('file', f);
+    if(regions) fd.append('regions', JSON.stringify(regions));
+    fd.append('mode', mode);
+    const res = await fetch(url, {method:'POST', body:fd});
+    if(!res.ok) return alert('error '+res.status);
+    const blob = await res.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'redacted-'+f.name;
+    a.click();
+  }
+
+  async function sendDoc(){
+    const f = document.getElementById('file2').files[0];
+    if(!f) return alert('pick file');
+    const fd = new FormData();
+    fd.append('file', f);
+    if(f.name.endsWith('.docx')){
+      const phrases = document.getElementById('phrases').value;
+      if(phrases) fd.append('phrases', phrases);
+      const res = await fetch('/redact/docx', {method:'POST', body:fd});
+      if(!res.ok) return alert('error');
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'redacted-'+f.name;
+      a.click();
+    } else {
+      const cells = document.getElementById('cells').value;
+      const cols = document.getElementById('columns').value;
+      if(cells) fd.append('cells', cells);
+      if(cols) fd.append('columns', cols);
+      const res = await fetch('/redact/xlsx', {method:'POST', body:fd});
+      if(!res.ok) return alert('error');
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'redacted-'+f.name;
+      a.click();
+    }
+  }
+  </script>
+</body>
+</html>

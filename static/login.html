@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Sign In / Sign Up</title>
+  <style>body{font-family:Arial;padding:20px;max-width:600px;margin:auto}label{display:block;margin-top:8px}</style>
+</head>
+<body>
+  <link rel="stylesheet" href="/static/styles.css" />
+  <div class="container">
+    <h1>Welcome</h1>
+    <p>Sign in with Google, create an account, or continue as a guest.</p>
+    <div style="display:flex;gap:20px;margin-top:18px">
+      <div style="flex:1">
+        <h3>Sign In</h3>
+        <label>Username <input id="loginUser"/></label>
+        <label>Password <input id="loginPass" type="password"/></label>
+        <div style="margin-top:8px"><button onclick="doLogin()">Login</button></div>
+      </div>
+      <div style="flex:1">
+        <h3>Sign Up</h3>
+        <label>Username <input id="signupUser"/></label>
+        <label>Password <input id="signupPass" type="password"/></label>
+        <div style="margin-top:8px"><button onclick="doSignup()">Sign Up</button></div>
+      </div>
+    </div>
+
+    <hr style="margin:18px 0" />
+    <div style="display:flex;gap:12px;align-items:center">
+      <div id="g_id_onload" data-client_id="YOUR_GOOGLE_CLIENT_ID" data-callback="handleCredentialResponse"></div>
+      <div class="g_id_signin" data-type="standard"></div>
+      <div style="flex:1;text-align:right"><button onclick="doGuest()" style="background:#6b7280">Continue as Guest</button></div>
+    </div>
+  </div>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="/static/js/auth.js"></script>
+</body>
+</html>

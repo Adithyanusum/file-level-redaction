@@ -1,0 +1,393 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>FILE LEVEL REDACTION web</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>FILE LEVEL REDACTION web</h1>
+    <p>Select a file to redact, preview it, detect sensitive data automatically, adjust regions with the snipping tool, then click <strong>Redact</strong> to download the redacted file.</p>
+
+    <label>Select file: <input id="fileSel" type="file" /></label>
+    <div style="display:flex;gap:12px;margin-top:12px">
+      <div style="flex:1">
+        <div style="border:1px solid #ddd;padding:8px;border-radius:8px;position:relative;">
+              <canvas id="previewCanvas" style="max-width:100%;background:#fff;display:block;z-index:1;position:relative"></canvas>
+              <canvas id="selectorOverlay" style="position:absolute;left:8px;top:8px;pointer-events:none;z-index:2"></canvas>
+              <button id="editToggleFloating" style="position:absolute;top:8px;right:8px;z-index:3;padding:6px 10px;border-radius:8px;background:#ff7a59;color:white;border:none;cursor:pointer">Edit</button>
+            </div>
+            <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+              <button id="btnDetect">Detect Sensitive</button>
+              <button id="btnAddRegion">Add Region</button>
+              <button id="editToggle">Edit</button>
+              <button id="btnClear">Clear Selection</button>
+            </div>
+      </div>
+      <div style="width:320px">
+        <label>Manual Regions JSON: <input id="regionsJson" placeholder='eg [[x,y,w,h],...]' /></label>
+        <label>Excel cells (JSON): <input id="cells" placeholder='eg ["A1","C3"]' /></label>
+        <label>Columns (JSON): <input id="cols" placeholder='eg ["C","D"] or [3]' /></label>
+        <div style="margin-top:12px">
+          <button id="btnRedact">Redact & Download</button>
+        </div>
+        <div style="margin-top:12px"><small>Detected matches will appear here:</small>
+          <ul id="matchesList"></ul>
+            <div style="margin-top:8px">
+              <label><small>Computed redact payload (preview):</small></label>
+              <pre id="payloadBox" style="background:#f6f6f6;border:1px solid #eee;padding:8px;height:120px;overflow:auto;font-size:12px"></pre>
+            </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/selector.js"></script>
+  <script>
+  // Development helper: unregister any service worker for this origin
+  // This prevents previously-registered SWs from intercepting fetches during local testing.
+  if (typeof navigator !== 'undefined' && navigator.serviceWorker){
+    navigator.serviceWorker.getRegistrations && navigator.serviceWorker.getRegistrations()
+      .then(regs => { if(regs && regs.length){ console.log('Unregistering service workers for dev:', regs); regs.forEach(r => r.unregister().catch(()=>{})); }})
+      .catch(()=>{});
+  }
+  // Backend base URL (when UI served from a different origin such as Live Server on :5500)
+  const BACKEND = 'http://127.0.0.1:8000';
+  const fileSel = document.getElementById('fileSel');
+  const previewCanvas = document.getElementById('previewCanvas');
+  const ctx = previewCanvas.getContext('2d');
+  let currentFile = null;
+  let originalImage = null;
+
+  async function loadImageToCanvas(blob){
+    return new Promise((resolve, reject)=>{
+      const img = new Image();
+      const url = URL.createObjectURL(blob);
+      img.onload = ()=>{
+        previewCanvas.width = img.width; previewCanvas.height = img.height;
+        const DPR = window.devicePixelRatio || 1;
+        previewCanvas.style.width = (previewCanvas.width / DPR) + 'px';
+        previewCanvas.style.height = (previewCanvas.height / DPR) + 'px';
+        ctx.drawImage(img,0,0);
+        originalImage = img;
+        URL.revokeObjectURL(url);
+        try{
+          const ov = document.getElementById('selectorOverlay');
+          const rect = previewCanvas.getBoundingClientRect();
+          ov.style.left = previewCanvas.offsetLeft + 'px'; ov.style.top = previewCanvas.offsetTop + 'px';
+          ov.style.width = rect.width + 'px'; ov.style.height = rect.height + 'px';
+          ov.width = Math.round(rect.width); ov.height = Math.round(rect.height);
+          window.selector.attach('selectorOverlay'); window.selector.setOriginalSize(img.width, img.height); window.selector.setRegions([]);
+          applyPreviewRedactions();
+        }catch(e){}
+        resolve();
+      };
+      img.onerror = (err)=>{ URL.revokeObjectURL(url); reject(err); };
+      img.src = url;
+    });
+  }
+
+  function showPreviewUnavailable(){ previewCanvas.width = 600; previewCanvas.height = 200; ctx.clearRect(0,0,previewCanvas.width, previewCanvas.height); ctx.fillText('Preview not available for this file type',10,20); }
+
+  fileSel.addEventListener('change', async ()=>{
+    console.log('fileSel.change');
+    const f = fileSel.files[0];
+    if(!f) return;
+    currentFile = f;
+    try{
+      if(f.name.toLowerCase().endsWith('.pdf')){
+        const fd = new FormData(); fd.append('file', f);
+        const res = await fetch(BACKEND + '/preview/pdf', {method:'POST', body:fd});
+        if(!res.ok){ const txt = await res.text().catch(()=>res.status); alert('Preview failed: '+txt); return; }
+        const blob = await res.blob(); await loadImageToCanvas(blob);
+        try{ await runAutoDetect(currentFile); }catch(e){ console.warn('auto detect failed', e); }
+      } else if(f.type.startsWith('image/')){
+        const blob = new Blob([await f.arrayBuffer()]); await loadImageToCanvas(blob); try{ await runAutoDetect(currentFile); }catch(e){ console.warn('auto detect failed', e); }
+      } else if(f.name.toLowerCase().endsWith('.docx')){
+        const fd = new FormData(); fd.append('file', f);
+        const res = await fetch(BACKEND + '/preview/docx', {method:'POST', body:fd});
+        if(res.ok){ const blob = await res.blob(); await loadImageToCanvas(blob); try{ await runAutoDetect(currentFile); }catch(e){ console.warn('auto detect failed', e); } }
+        else { let msg = 'Preview not available'; try{ const j = await res.json(); msg = j.error || JSON.stringify(j); }catch(e){ try{ msg = await res.text(); }catch(e){} } console.error('preview/docx failed', msg); alert('Preview failed: '+msg); showPreviewUnavailable(); }
+      } else if(f.name.toLowerCase().endsWith('.xlsx')){
+        const fd = new FormData(); fd.append('file', f);
+        const res = await fetch(BACKEND + '/preview/xlsx', {method:'POST', body:fd});
+        if(res.ok){ const blob = await res.blob(); await loadImageToCanvas(blob); try{ await runAutoDetect(currentFile); }catch(e){ console.warn('auto detect failed', e); } }
+        else { let msg = 'Preview not available'; try{ const j = await res.json(); msg = j.error || JSON.stringify(j); }catch(e){ try{ msg = await res.text(); }catch(e){} } console.error('preview/xlsx failed', msg); alert('Preview failed: '+msg); showPreviewUnavailable(); }
+      } else { showPreviewUnavailable(); }
+    }catch(e){ console.error('file change handler error', e); alert('Preview error: '+(e&&e.message?e.message:e)); }
+  });
+
+  document.getElementById('btnDetect').addEventListener('click', async ()=>{
+    if(!currentFile) return alert('pick a file');
+    const fd = new FormData(); fd.append('file', currentFile);
+    const res = await fetch(BACKEND + '/detect', {method:'POST', body:fd});
+    if(!res.ok) return alert('detect failed');
+    const j = await res.json();
+    const matchesList = document.getElementById('matchesList'); matchesList.innerHTML='';
+    // for pdf, j is array
+    if(Array.isArray(j)){
+      // j is per-page matches
+      for(const p of j){
+        for(const m of p.matches){
+          const li = document.createElement('li'); li.textContent = `page ${p.page}: ${m.text}`; matchesList.appendChild(li);
+        }
+      }
+      // build rects across all pages, mapping page rects into the stitched preview canvas coordinates
+      const rects = [];
+      if(j.length>0){
+        const pageCount = j.length;
+        const canvasPageHeight = previewCanvas.height / pageCount;
+        const zoom = 2.0; // preview render zoom used by backend
+        for(let pi=0; pi<j.length; pi++){
+          const pageMatches = j[pi].matches || [];
+          for(const m of pageMatches){
+            const x0 = m.rect[0]*zoom;
+            const y0 = m.rect[1]*zoom + (pi * canvasPageHeight);
+            const w = (m.rect[2]-m.rect[0])*zoom;
+            const h = (m.rect[3]-m.rect[1])*zoom;
+            rects.push([x0, y0, w, h]);
+          }
+        }
+      }
+      try{ window.selector.setRegions(rects); applyPreviewRedactions(); drawDetectedRects(rects, true); }catch(e){}
+    } else if(j.matches){
+      for(const m of j.matches){
+        const li = document.createElement('li'); li.textContent = JSON.stringify(m); matchesList.appendChild(li);
+      }
+      // for images, j.matches is list of {rect: [x,y,w,h]}
+      const rects = [];
+      if(Array.isArray(j.matches)){
+        for(const m of j.matches){ if(m.rect) rects.push(m.rect); }
+      }
+      try{ window.selector.setRegions(rects); applyPreviewRedactions(); drawDetectedRects(rects, false); }catch(e){}
+    } else if(j.text_matches || j.images){
+      // new detect response shape for docx/xlsx: {text_matches: [...], images: [...]}
+      if(Array.isArray(j.text_matches)){
+        for(const t of j.text_matches){ const li = document.createElement('li'); li.textContent = t; matchesList.appendChild(li); }
+      }
+      if(Array.isArray(j.images) && j.images.length){
+        for(const im of j.images){ const li = document.createElement('li'); li.textContent = '[image] '+im; matchesList.appendChild(li); }
+      }
+      // no page rects available for these types; user can redact via provided controls
+      try{ applyPreviewRedactions(); }catch(e){}
+    }
+  });
+
+  async function runAutoDetect(file){
+    if(!file) return;
+    try{
+      const fd = new FormData(); fd.append('file', file);
+      const res = await fetch(BACKEND + '/detect', {method:'POST', body:fd});
+      if(!res.ok) return;
+      const j = await res.json();
+      const matchesList = document.getElementById('matchesList'); matchesList.innerHTML='';
+      if(Array.isArray(j)){
+        for(const p of j){ for(const m of p.matches){ const li = document.createElement('li'); li.textContent = `page ${p.page}: ${m.text}`; matchesList.appendChild(li); } }
+        // remember detected page count for later mapping when redacting
+        window.detectedPageCount = j.length || 0;
+        const rects = [];
+        if(j.length>0){
+          const pageCount = j.length;
+          const canvasPageHeight = previewCanvas.height / pageCount;
+          const zoom = 2.0; // preview render zoom used by backend
+          for(let pi=0; pi<j.length; pi++){
+            const pageMatches = j[pi].matches || [];
+            for(const m of pageMatches){
+              const x0 = m.rect[0]*zoom;
+              const y0 = m.rect[1]*zoom + (pi * canvasPageHeight);
+              const w = (m.rect[2]-m.rect[0])*zoom;
+              const h = (m.rect[3]-m.rect[1])*zoom;
+              rects.push([x0, y0, w, h]);
+            }
+          }
+        }
+        try{ window.selector.setRegions(rects); applyPreviewRedactions(); drawDetectedRects(rects, true); }catch(e){}
+      } else if(j.matches){
+        for(const m of j.matches){ const li = document.createElement('li'); li.textContent = JSON.stringify(m); matchesList.appendChild(li); }
+        const rects = [];
+        if(Array.isArray(j.matches)){
+          for(const m of j.matches){ if(m.rect) rects.push(m.rect); }
+        }
+        try{ window.selector.setRegions(rects); applyPreviewRedactions(); }catch(e){}
+      } else if(j.text_matches || j.images){
+        if(Array.isArray(j.text_matches)){
+          for(const t of j.text_matches){ const li = document.createElement('li'); li.textContent = t; matchesList.appendChild(li); }
+        }
+        if(Array.isArray(j.images) && j.images.length){
+          for(const im of j.images){ const li = document.createElement('li'); li.textContent = '[image] '+im; matchesList.appendChild(li); }
+        }
+        try{ applyPreviewRedactions(); }catch(e){}
+      }
+    }catch(e){ console.error('auto detect failed', e); }
+  }
+
+  // draw detected rects directly on preview canvas so users always see black boxes / blurs
+  function drawDetectedRects(rects, isPdf){
+    if(!originalImage) return;
+    // redraw base preview
+    ctx.clearRect(0,0,previewCanvas.width, previewCanvas.height);
+    ctx.drawImage(originalImage, 0, 0, previewCanvas.width, previewCanvas.height);
+    if(!rects || !rects.length) return;
+    for(const r of rects){
+      const x=r[0], y=r[1], w=r[2], h=r[3];
+      if(isPdf){ ctx.fillStyle = 'black'; ctx.fillRect(x, y, w, h); }
+      else {
+        try{
+          const tmp = document.createElement('canvas'); tmp.width = w; tmp.height = h;
+          const tctx = tmp.getContext('2d'); tctx.filter = 'blur(8px)';
+          tctx.drawImage(previewCanvas, x, y, w, h, 0, 0, w, h);
+          ctx.drawImage(tmp, 0, 0, w, h, x, y, w, h);
+        }catch(e){ ctx.fillStyle='rgba(0,0,0,0.6)'; ctx.fillRect(x,y,w,h); }
+      }
+    }
+  }
+
+  document.getElementById('btnClear').addEventListener('click', ()=>{ try{ window.selector.setRegions([]); }catch(e){} });
+
+  // Edit toggle: enable/disable drawing on overlay (floating button preferred)
+  const editToggle = document.getElementById('editToggleFloating') || document.getElementById('editToggle');
+  let editing = false;
+  editToggle.addEventListener('click', ()=>{
+    editing = !editing;
+    editToggle.textContent = editing? 'Done':'Edit';
+    try{ window.selector.enableEditing(editing); }catch(e){}
+  });
+
+  // Add Region: one-shot region drawing flow
+  const btnAddRegion = document.getElementById('btnAddRegion');
+  let addingRegion = false;
+  btnAddRegion.addEventListener('click', ()=>{
+    if(!window.selector) return;
+    if(addingRegion){
+      // cancel
+      addingRegion = false; btnAddRegion.textContent = 'Add Region'; window.selector.enableEditing(false); return;
+    }
+    // begin one-shot add: enable editing and watch for a new rect
+    const beforeCount = (window.selector.getCanvasRegions && window.selector.getCanvasRegions().length) || 0;
+    addingRegion = true; btnAddRegion.textContent = 'Cancel';
+    window.selector.enableEditing(true);
+    const iv = setInterval(()=>{
+      const nowCount = (window.selector.getCanvasRegions && window.selector.getCanvasRegions().length) || 0;
+      if(nowCount > beforeCount){
+        // user added a region; finish
+        clearInterval(iv); addingRegion = false; btnAddRegion.textContent = 'Add Region';
+        try{ window.selector.enableEditing(false); applyPreviewRedactions(); }catch(e){ }
+      }
+    }, 200);
+  });
+
+  // apply preview redactions whenever regions change
+  try{ window.selector.onChange(()=>{ applyPreviewRedactions(); }); }catch(e){}
+
+  document.getElementById('btnClear').addEventListener('click', ()=>{ try{ window.selector.setRegions([]); applyPreviewRedactions(); }catch(e){} });
+
+  // ensure overlay stays in sync on resize
+  window.addEventListener('resize', ()=>{
+    try{
+      const ov = document.getElementById('selectorOverlay');
+      if(!ov || !originalImage) return;
+      const rect = previewCanvas.getBoundingClientRect();
+      ov.style.left = previewCanvas.offsetLeft + 'px'; ov.style.top = previewCanvas.offsetTop + 'px';
+      ov.style.width = rect.width + 'px'; ov.style.height = rect.height + 'px';
+      ov.width = Math.round(rect.width); ov.height = Math.round(rect.height);
+    }catch(e){}
+  });
+
+  function applyPreviewRedactions(){
+    if(!originalImage) return;
+    // redraw original
+    ctx.clearRect(0,0,previewCanvas.width, previewCanvas.height);
+    ctx.drawImage(originalImage, 0, 0, previewCanvas.width, previewCanvas.height);
+    const canvasRects = (window.selector && window.selector.getCanvasRegions)? window.selector.getCanvasRegions(): [];
+    if(!canvasRects || !canvasRects.length) return;
+    const isPdf = currentFile && currentFile.name && currentFile.name.toLowerCase().endsWith('.pdf');
+    for(const r of canvasRects){
+      const x = r[0], y = r[1], w = r[2], h = r[3];
+      if(isPdf){
+        ctx.fillStyle = 'black'; ctx.fillRect(x, y, w, h);
+      } else {
+        // attempt blur region using offscreen canvas (apply filter before draw)
+        try{
+          const tmp = document.createElement('canvas'); tmp.width = w; tmp.height = h;
+          const tctx = tmp.getContext('2d');
+          tctx.filter = 'blur(8px)';
+          tctx.drawImage(previewCanvas, x, y, w, h, 0, 0, w, h);
+          ctx.drawImage(tmp, 0, 0, w, h, x, y, w, h);
+        }catch(e){
+          ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(x,y,w,h);
+        }
+      }
+    }
+  }
+
+  document.getElementById('btnRedact').addEventListener('click', async ()=>{
+    if(!currentFile) return alert('pick a file');
+    let regions = [];
+    try{ regions = window.selector.getRegions() || []; }catch(e){ regions = []; }
+    const fd = new FormData(); fd.append('file', currentFile);
+    if(currentFile.name.toLowerCase().endsWith('.pdf')){
+      // ensure we know page count (run detect if needed)
+      if(!window.detectedPageCount || window.detectedPageCount < 1){
+        try{
+          const dfd = new FormData(); dfd.append('file', currentFile);
+          const dres = await fetch(BACKEND + '/detect', {method:'POST', body:dfd});
+          if(dres.ok){ const dj = await dres.json(); if(Array.isArray(dj)) window.detectedPageCount = dj.length || 1; }
+        }catch(e){}
+      }
+      // convert canvas regions to PDF page rects (x0,y0,x1,y1).
+      // preview generation uses zoom=2.0 in backend preview; divide back by zoom.
+      let regionsForPdf = [];
+      try{
+        // selector.getRegions() returns regions in the original image pixel space
+        const regs = window.selector.getRegions() || [];
+        const zoom = 2.0;
+        const pageCount = window.detectedPageCount || 1;
+        // compute page height in the original image pixels
+        const pageHeight = (originalImage && originalImage.height) ? (originalImage.height / pageCount) : (previewCanvas.height / pageCount);
+        for(const r of regs){
+          // r is [x,y,w,h] in original image pixels
+          const page = Math.max(0, Math.min(pageCount-1, Math.floor(r[1] / pageHeight)));
+          const yOnPage = r[1] - (page * pageHeight);
+          const x = r[0] / zoom;
+          const y = yOnPage / zoom;
+          const w = r[2] / zoom;
+          const h = r[3] / zoom;
+          regionsForPdf.push({page: page, rect: [x, y, x + w, y + h]});
+        }
+        console.log('regionsForPdf', regionsForPdf);
+        try{ const pb = document.getElementById('payloadBox'); if(pb) pb.textContent = JSON.stringify(regionsForPdf, null, 2); }catch(e){}
+      }catch(e){ regionsForPdf = []; }
+      if(regionsForPdf.length) fd.append('regions', JSON.stringify(regionsForPdf));
+      const res = await fetch(BACKEND + '/redact/pdf', {method:'POST', body:fd});
+      if(!res.ok){ const txt = await res.text().catch(()=>null); return alert('redact failed: '+(txt||res.status)); }
+      const blob = await res.blob(); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'redacted-'+currentFile.name; a.click();
+    } else if(currentFile.type.startsWith('image/')){
+      fd.append('mode', 'blur');
+      // for images, send regions as [x,y,w,h]
+      try{ const regs = window.selector.getRegions() || []; if(regs && regs.length) fd.append('regions', JSON.stringify(regs)); try{ const pb = document.getElementById('payloadBox'); if(pb) pb.textContent = JSON.stringify(regs, null, 2); }catch(e){} }catch(e){}
+      const res = await fetch(BACKEND + '/redact/image', {method:'POST', body:fd});
+      if(!res.ok) return alert('redact failed');
+      const blob = await res.blob(); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'redacted-'+currentFile.name; a.click();
+    } else if(currentFile.name.toLowerCase().endsWith('.docx')){
+      // for word, we expect phrases from matches list; use matches display as phrases
+      const phrases = [];
+      for(const li of document.getElementById('matchesList').children) phrases.push(li.textContent);
+      if(phrases.length) fd.append('phrases', JSON.stringify(phrases));
+      const res = await fetch(BACKEND + '/redact/docx', {method:'POST', body:fd});
+      if(!res.ok) return alert('redact failed');
+      const blob = await res.blob(); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'redacted-'+currentFile.name; a.click();
+    } else if(currentFile.name.toLowerCase().endsWith('.xlsx')){
+      const cells = document.getElementById('cells').value; const cols = document.getElementById('cols').value;
+      if(cells) fd.append('cells', cells);
+      if(cols) fd.append('columns', cols);
+      const res = await fetch(BACKEND + '/redact/xlsx', {method:'POST', body:fd});
+      if(!res.ok) return alert('redact failed');
+      const blob = await res.blob(); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'redacted-'+currentFile.name; a.click();
+    } else {
+      alert('unsupported file type for redact');
+    }
+  });
+  </script>
+</body>
+</html>

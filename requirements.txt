@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+python-multipart
+pymupdf
+opencv-python-headless
+numpy
+python-docx
+openpyxl
+# removed auth dependency (PyJWT) since auth was removed
+Pillow
