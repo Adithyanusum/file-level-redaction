@@ -1,4 +1,9 @@
-node_modules/
-.env
-.DS_Store
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual environment
+.venv/
+
+# Logs
 *.log
