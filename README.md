@@ -111,12 +111,12 @@ Containerization	Docker (optional)
 file-level-redaction/
 │
 ├── app/
-│   ├── main.py              # FastAPI routes
-│   ├── redact.py            # Detection & redaction logic
+│   ├── main.py        # FastAPI routes
+│   ├── redact.py      # Detection & redaction logic
 │   └── __init__.py
 │
 ├── static/
-│   ├── index.html           # Upload & preview UI
+│   ├── index.html
 │   ├── docs.html
 │   ├── styles.css
 │   └── js/
@@ -127,19 +127,18 @@ file-level-redaction/
 │   ├── cleanup_and_remove.ps1
 │   └── push_to_github.ps1
 │
-├── tests/
-├── tools/
+├── tests/             # Test cases (optional/extendable)
+├── tools/             # Dev helpers
 │   ├── architecture.md
 │   ├── SoftwareRequirements.md
 │   ├── test.md
-│   └── text.md
+│   ├── text.md
 │
 ├── requirements.txt
 ├── render.yaml
 ├── Dockerfile
 ├── README.md
 └── LICENSE
-
 
 ====================================================================
 
