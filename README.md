@@ -110,30 +110,35 @@ Containerization	Docker (optional)
 🔷 6️⃣ PROJECT STRUCTURE
 file-level-redaction/
 ├── app/
-│   ├── main.py              # FastAPI routes
-│   ├── redact.py            # Detection & redaction logic
-│   ├── init.py
-│   └── static/
-│       ├── index.html
-│       ├── docs.html
-│       ├── styles.css
-│       ├── js/
-│       │   ├── auth.js
-│       │   └── selector.js
-│       └── scripts/
-├── cleanup_and_remove.ps1   # Dev script
-├── push_to_github.ps1       # Dev script
-├── tests/                   # Test cases (optional/extendable)
-├── tools/                   # Dev helpers
-│   ├── architecture.md
-│   ├── SoftwareRequirements.md
-│   ├── test.md
-│   └── text.md
-├── requirements.txt         # Python dependencies
-├── render.yaml              # Render deployment config
-├── Dockerfile               # Containerization config
-├── README.md                # Project documentation
-└── LICENSE                  # MIT License
+│   ├── main.py
+│   └── redact.py
+├── static/
+│   ├── js/
+│   ├── docs.html
+│   ├── index.html
+│   └── styles.css
+├── test_data/
+│   ├── sample_sensitive.pdf
+│   ├── sample_sensitive.docx
+│   ├── sample_sensitive.png
+│   ├── sample_clean.pdf
+│   └── sample_empty.pdf
+├── tests/
+│   ├── conftest.py
+│   ├── test_redact.py
+│   ├── test_redact_image.py
+│   ├── test_negative.py
+│   └── test_edge.py
+├── .gitignore
+├── Dockerfile
+├── requirements.txt
+├── README.md
+├── Projectplan.md
+├── Softwarerequirements.md
+├── architecture.md
+├── render.yaml
+└── LICENSE
+
 
 ====================================================================
 
