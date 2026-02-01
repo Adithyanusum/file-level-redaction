@@ -1,8 +1,5 @@
-import pathlib
 import pytest
 
-
-@pytest.fixture(scope="session")
-def fixtures_dir():
-    """Path to tests fixtures directory."""
-    return pathlib.Path(__file__).parent / "fixtures"
+@pytest.fixture
+def base_url():
+    return "http://localhost:8000"
