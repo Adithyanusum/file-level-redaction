@@ -2,8 +2,13 @@
 __pycache__/
 *.pyc
 
-# Virtual environment
+# Virtual environments
 .venv/
+venv/
 
 # Logs
 *.log
+
+# OS files
+.DS_Store
+Thumbs.db
