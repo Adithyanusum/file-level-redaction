@@ -1,87 +1,107 @@
 🛡️ File-Level Redaction Web Application
 
-A secure, web-based file redaction system built using FastAPI that enables users to detect and redact sensitive information from PDF, Image, DOCX, and XLSX files. The application supports manual, phrase-based, and automatic redaction, with preview and detection capabilities.
+A secure, extensible, and production-ready web application for detecting and redacting sensitive information from digital documents.
+Built using FastAPI, the system supports PDFs, Images, Word (DOCX), and Excel (XLSX) files with manual, phrase-based, and automatic redaction capabilities.
 
-📌 Project Overview
+1️⃣ Executive Summary
 
-Handling sensitive documents often requires masking or removing Personally Identifiable Information (PII) such as emails, phone numbers, IDs, and confidential text.
-This project provides a file-level redaction platform that allows users to:
+Organizations frequently handle documents containing Personally Identifiable Information (PII) such as email addresses, phone numbers, government IDs, and confidential text.
+Improper handling of such data can lead to privacy breaches and compliance violations.
 
-Upload documents
+This project delivers a file-level redaction platform that enables users to:
 
-Detect sensitive data
+Upload documents securely
 
-Preview files
+Detect sensitive information automatically or manually
 
-Apply redaction safely
+Preview content before redaction
 
-Download redacted outputs
+Apply redaction reliably
 
-The system is designed for accuracy, robustness, and extensibility, making it suitable for real-world document processing workflows.
+Download sanitized documents
 
-✨ Key Features
-🔍 Detection
+The system is designed with a focus on security, accuracy, modularity, and future scalability.
 
-OCR-based detection for images
+2️⃣ Core Capabilities
+🔍 Sensitive Data Detection
 
-Text extraction from PDF, DOCX, and XLSX
+OCR-based text extraction for image files
 
-Phrase-based sensitive data identification
+Native text extraction from PDFs, DOCX, and XLSX
 
-Automatic PII detection fallback
+Phrase-based detection using custom patterns
 
-✂️ Redaction
+Automatic fallback detection for common PII types
 
-Region-based redaction (manual selection)
+✂️ Redaction Methods
+
+Manual region-based redaction
 
 Phrase-based redaction
 
-Automatic redaction
+Fully automatic redaction
 
-Supports blackout and blur modes
+Supports blackout and blur styles
 
-Multi-page PDF redaction
+Handles multi-page PDF redaction
 
-👀 Preview
+👀 Preview & Validation
 
 PDF first-page preview
 
-DOCX preview (image / HTML)
+DOCX preview (HTML/Image rendering)
 
-XLSX preview (image / HTML)
+XLSX preview (HTML/Image rendering)
 
-📁 Supported File Types
+Ensures user confirmation before final redaction
 
-PDF
+3️⃣ Supported File Formats
+Category	Formats
+Documents	PDF, DOCX, XLSX
+Images	PNG, JPG, JPEG, TIFF, BMP
+4️⃣ System Architecture Overview
 
-Images (PNG, JPG, JPEG, TIFF, BMP)
+The application follows a clean, layered architecture:
 
-DOCX
+Frontend Layer
+HTML, CSS, and JavaScript for upload, preview, and redaction selection
 
-XLSX
+API Layer
+FastAPI handles routing, validation, and orchestration
 
-🧱 Technology Stack
+Processing Layer
+
+OCR engine for images
+
+PDF and Office document parsers
+
+Redaction logic and masking engine
+
+Deployment Layer
+Hosted using Uvicorn on Render with optional Docker support
+
+5️⃣ Technology Stack
 Layer	Technology
-Backend	FastAPI
-ASGI Server	Uvicorn
-OCR	Tesseract (via pytesseract)
+Backend Framework	FastAPI
+Server	Uvicorn
+OCR Engine	Tesseract (pytesseract)
 PDF Processing	PyMuPDF
 Image Processing	OpenCV, Pillow
-Office Docs	python-docx, openpyxl
+Document Handling	python-docx, openpyxl
 Frontend	HTML, CSS, JavaScript
 Deployment	Render
 Containerization	Docker (optional)
-📂 Project Structure
+6️⃣ Project Structure
 file-level-redaction/
 │
 ├── app/
-│   ├── main.py              # FastAPI routes
-│   ├── redact.py            # Detection & redaction logic
+│   ├── main.py              # FastAPI routes and API logic
+│   ├── redact.py            # Detection and redaction engine
 │   └── __init__.py
 │
 ├── static/
-│   ├── index.html
-│   ├── docs.html
+│   ├── index.html           # Upload & preview UI
+│   ├── docs.html            # Documentation UI
 │   ├── styles.css
 │   └── js/
 │       ├── auth.js
@@ -91,65 +111,59 @@ file-level-redaction/
 │   ├── cleanup_and_remove.ps1
 │   └── push_to_github.ps1
 │
-├── tests/                   # Test cases (optional/extendable)
-├── tools/                   # Dev helpers (not required for deploy)
+├── tests/                   # Extendable test cases
+├── tools/
+│   ├── architecture.md
+│   ├── SoftwareRequirements.md
+│   ├── test.md
+│   └── text.md
 │
-├── architecture.md
-├── SoftwareRequirements.md
-├── test.md
-├── text.md
 ├── requirements.txt
 ├── render.yaml
 ├── Dockerfile
 ├── README.md
 └── LICENSE
 
-🚀 Deployment
-🌐 Hosted on Render
+7️⃣ Deployment Details
 
-The application is deployed using Render with Uvicorn.
+Hosting Platform: Render
+
+ASGI Server: Uvicorn
 
 Start Command
 
 uvicorn app.main:app --host 0.0.0.0 --port 10000
 
 
-Health Check
+Health Check Endpoint
 
 GET /health
+Response: { "status": "ok" }
 
+8️⃣ Testing Strategy
+✅ Functional Tests
 
-Expected response:
+Valid document uploads
 
-{ "status": "ok" }
+Accurate detection of emails and phone numbers
 
-🧪 Testing Strategy
+Successful preview rendering
 
-The project is tested using Positive, Negative, and Edge cases to ensure correctness and robustness.
-
-✔️ Positive Tests
-
-Valid file uploads
-
-Successful redaction of emails and phone numbers
-
-Preview generation
-
-Auto-redaction across formats
+Cross-format auto-redaction
 
 ❌ Negative Tests
 
-Unsupported file types
+Unsupported file formats
 
-Corrupt files
-
-Invalid JSON inputs
+Corrupted or invalid files
 
 Missing OCR dependencies
 
-⚠️ Edge Tests
+Invalid request payloads
 
-Large multi-page PDFs
+⚠️ Edge Case Tests
+
+Large, multi-page PDFs
 
 High-resolution images
 
@@ -157,49 +171,45 @@ Overlapping redaction regions
 
 Repeated sensitive data patterns
 
-Detailed test cases are documented in test.md.
+(Detailed test cases available in test.md)
 
-🔒 Security & Privacy Considerations
+9️⃣ Security & Privacy Design
 
 No user authentication (MVP scope)
 
-Files processed in memory
+Files processed in memory only
 
-No external storage by default
+No external or persistent file storage
 
 Redaction logs can be sanitized
 
-Designed to avoid accidental PII leaks
+Designed to prevent accidental PII exposure
 
-⚠️ Limitations
+🔟 Known Limitations
 
 PDF redaction is visual (text layer may still exist)
 
 Encrypted PDFs are not supported
 
-OCR accuracy depends on image quality
+OCR accuracy depends on input quality
 
-Large files may impact performance on free tiers
+Large files may affect performance on free hosting tiers
 
-🔮 Future Enhancements
+1️⃣1️⃣ Future Enhancements
 
-Permanent PDF redaction (apply_redactions)
+Permanent PDF redaction using native APIs
 
 Multilingual OCR support
 
-Batch file uploads
+Batch file processing
 
-Authentication & access control
+Authentication & role-based access control
 
-Role-based redaction policies
+Audit logs and confidence scoring
 
-Audit logs and redaction confidence scoring
+Cloud storage integration (S3, GCS)
 
-Cloud storage integration
+1️⃣2️⃣ License
 
-“This project implements a secure file-level redaction web application using FastAPI that supports detection, preview, and redaction of sensitive data across PDFs, images, DOCX, and XLSX files, validated using positive, negative, and edge-case testing.”
-
-📜 License
-
-This project is licensed under the MIT License.
-See the LICENSE file for details.
+This project is released under the MIT License.
+Refer to the LICENSE file for full terms.
