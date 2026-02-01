@@ -140,6 +140,6 @@ The File Redaction System was developed using an **Agile, sprint-based approach*
 
 ---
 
-## ✅ Agile One-Line Summary (Viva-Ready)
+## 
 
 > **“The File Redaction System was developed using Agile methodology, delivering an MVP through incremental sprints that focused on core redaction, detection, preview, and testing, ensuring flexibility, rapid feedback, and continuous improvement.”**
