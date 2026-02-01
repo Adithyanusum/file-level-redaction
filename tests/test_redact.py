@@ -1,25 +1,32 @@
-import pytest
+import requests
+import os
+
+def test_pdf_redaction(base_url):
+    file_path = "test_data/sample_sensitive.pdf"
+    assert os.path.exists(file_path)
+
+    with open(file_path, "rb") as f:
+        response = requests.post(
+            f"{base_url}/redact/pdf",
+            files={"file": f},
+            data={"phrases": '["ravi.kumar92@example.com"]'}
+        )
+
+    assert response.status_code == 200
+    assert response.headers.get("X-Redacted") == "true"
+    print("PDF redaction test PASSED")
 
 
-def test_detect_pan_and_redact(fixtures_dir, tmp_path):
-    pytest.skip("skeleton: implement detection+redaction assertion using fixtures")
+def test_docx_redaction(base_url):
+    file_path = "test_data/sample_sensitive.docx"
+    assert os.path.exists(file_path)
 
+    with open(file_path, "rb") as f:
+        response = requests.post(
+            f"{base_url}/redact/docx",
+            files={"file": f},
+            data={"phrases": '["+91 9876543210"]'}
+        )
 
-def test_aadhaar_verhoeff(fixtures_dir):
-    pytest.skip("skeleton: implement Aadhaar Verhoeff positive/negative cases")
-
-
-def test_credit_card_luhn(fixtures_dir):
-    pytest.skip("skeleton: implement Luhn card detection + redaction test")
-
-
-def test_bank_details_detection(fixtures_dir):
-    pytest.skip("skeleton: implement IBAN/IFSC/account detection test")
-
-
-def test_invalid_checksum_not_redacted(fixtures_dir):
-    pytest.skip("skeleton: ensure invalid checksums are not redacted")
-
-
-def test_multipage_pdf_redaction(fixtures_dir):
-    pytest.skip("skeleton: multi-page PDF redaction test")
+    assert response.status_code == 200
+    print("DOCX redaction test PASSED")
