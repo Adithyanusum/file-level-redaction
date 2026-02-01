@@ -1,0 +1,9 @@
+service: file-level-redaction
+name: file-redaction-webapp
+type: web
+env: python
+buildCommand: pip install -r requirements.txt
+startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+healthCheckPath: /
+instances: 1
+region: oregon
