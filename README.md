@@ -109,36 +109,31 @@ Containerization	Docker (optional)
 
 🔷 6️⃣ PROJECT STRUCTURE
 file-level-redaction/
-│
 ├── app/
-│   ├── main.py        # FastAPI routes
-│   ├── redact.py      # Detection & redaction logic
-│   └── __init__.py
-│
-├── static/
-│   ├── index.html
-│   ├── docs.html
-│   ├── styles.css
-│   └── js/
-│       ├── auth.js
-│       └── selector.js
-│
-├── scripts/
-│   ├── cleanup_and_remove.ps1
-│   └── push_to_github.ps1
-│
-├── tests/             # Test cases (optional/extendable)
-├── tools/             # Dev helpers
+│   ├── main.py              # FastAPI routes
+│   ├── redact.py            # Detection & redaction logic
+│   ├── init.py
+│   └── static/
+│       ├── index.html
+│       ├── docs.html
+│       ├── styles.css
+│       ├── js/
+│       │   ├── auth.js
+│       │   └── selector.js
+│       └── scripts/
+├── cleanup_and_remove.ps1   # Dev script
+├── push_to_github.ps1       # Dev script
+├── tests/                   # Test cases (optional/extendable)
+├── tools/                   # Dev helpers
 │   ├── architecture.md
 │   ├── SoftwareRequirements.md
 │   ├── test.md
-│   ├── text.md
-│
-├── requirements.txt
-├── render.yaml
-├── Dockerfile
-├── README.md
-└── LICENSE
+│   └── text.md
+├── requirements.txt         # Python dependencies
+├── render.yaml              # Render deployment config
+├── Dockerfile               # Containerization config
+├── README.md                # Project documentation
+└── LICENSE                  # MIT License
 
 ====================================================================
 
