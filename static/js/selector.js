@@ -33,15 +33,26 @@
 
   function onDown(ev){
     drawing = true;
-    const r = canvas.getBoundingClientRect();
-    sx = Math.round(ev.clientX - r.left);
-    sy = Math.round(ev.clientY - r.top);
+    // Prefer offset coordinates when available (more accurate inside the element)
+    const cw = canvas.clientWidth || canvas.width;
+    const ch = canvas.clientHeight || canvas.height;
+    const scaleX = canvas.width / cw;
+    const scaleY = canvas.height / ch;
+    let ox = (typeof ev.offsetX === 'number') ? ev.offsetX : (ev.clientX - canvas.getBoundingClientRect().left);
+    let oy = (typeof ev.offsetY === 'number') ? ev.offsetY : (ev.clientY - canvas.getBoundingClientRect().top);
+    sx = Math.round(ox * scaleX);
+    sy = Math.round(oy * scaleY);
   }
   function onMove(ev){
     if(!drawing) return;
-    const rct = canvas.getBoundingClientRect();
-    const mx = Math.round(ev.clientX - rct.left);
-    const my = Math.round(ev.clientY - rct.top);
+    const cw = canvas.clientWidth || canvas.width;
+    const ch = canvas.clientHeight || canvas.height;
+    const scaleX = canvas.width / cw;
+    const scaleY = canvas.height / ch;
+    const ox = (typeof ev.offsetX === 'number') ? ev.offsetX : (ev.clientX - canvas.getBoundingClientRect().left);
+    const oy = (typeof ev.offsetY === 'number') ? ev.offsetY : (ev.clientY - canvas.getBoundingClientRect().top);
+    const mx = Math.round(ox * scaleX);
+    const my = Math.round(oy * scaleY);
     render();
     const w = mx - sx; const h = my - sy;
     ctx.strokeStyle='blue'; ctx.fillStyle='rgba(0,0,255,0.15)'; ctx.lineWidth=2;
@@ -51,9 +62,14 @@
   function onUp(ev){
     if(!drawing) return;
     drawing = false;
-    const rct = canvas.getBoundingClientRect();
-    const ex = Math.round(ev.clientX - rct.left);
-    const ey = Math.round(ev.clientY - rct.top);
+    const cw = canvas.clientWidth || canvas.width;
+    const ch = canvas.clientHeight || canvas.height;
+    const scaleX = canvas.width / cw;
+    const scaleY = canvas.height / ch;
+    const ox = (typeof ev.offsetX === 'number') ? ev.offsetX : (ev.clientX - canvas.getBoundingClientRect().left);
+    const oy = (typeof ev.offsetY === 'number') ? ev.offsetY : (ev.clientY - canvas.getBoundingClientRect().top);
+    const ex = Math.round(ox * scaleX);
+    const ey = Math.round(oy * scaleY);
     let x = Math.min(sx, ex), y = Math.min(sy, ey), w = Math.abs(ex-sx), h = Math.abs(ey-sy);
     if(w>5 && h>5) rects.push([x,y,w,h]);
     render();
@@ -75,7 +91,12 @@
     if(!origW || !canvas || !canvas.width) return rects.slice();
     const scaleX = origW / canvas.width;
     const scaleY = origH / canvas.height;
-    return rects.map(r=>[ Math.round(r[0]*scaleX), Math.round(r[1]*scaleY), Math.round(r[2]*scaleX), Math.round(r[3]*scaleY) ]);
+    return rects.map(r=>[
+      Math.round(r[0]*scaleX),
+      Math.round(r[1]*scaleY),
+      Math.round(r[2]*scaleX),
+      Math.round(r[3]*scaleY)
+    ]);
   }
 
   // return regions in canvas coordinates (useful for preview drawing)

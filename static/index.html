@@ -2,100 +2,1209 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>File Redaction Demo</title>
-  <style>body{font-family:Arial;padding:20px;max-width:800px;margin:auto}label{display:block;margin-top:10px}</style>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Redaction — Upload & Protect</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+  <style>
+    .hidden { display: none !important; }
+  </style>
 </head>
 <body>
-  <h1>File Redaction Demo</h1>
-  <link rel="stylesheet" href="/static/styles.css" />
-  <p>Pick a file type and upload. This demo sends the file to the backend for redaction.</p>
+  <div class="container">
+    <header class="site-header">
+      <div class="brand"><span class="logo"></span>Redaction</div>
+      <nav class="nav">
+        <a href="/">Home</a>
+        <a href="/static/docs.html">Docs</a>
+      </nav>
+    </header>
 
-  <h2>Image / PDF</h2>
-  <label>File: <input id="file1" type="file" /></label>
-  <div style="display:flex;gap:12px;align-items:flex-start;">
-    <div style="flex:1;min-width:320px">
-      <label>Canvas Selector (images only)</label>
-      <div style="border:1px solid #ccc;display:inline-block;">
-        <canvas id="selectorCanvas" style="max-width:100%;display:block;background:#fff"></canvas>
+    <section class="hero">
+      <div>
+        <h1>Securely redact documents and images</h1>
+        <p>Upload files, select regions to redact, or provide phrases/cells to remove sensitive content. Fast, private, and easy to use.</p>
+        <div class="hero-cta">
+          <button class="btn" onclick="document.getElementById('file1').click()">Upload file</button>
+          <a class="btn secondary" href="/static/docs.html">How it works</a>
+        </div>
+        <div class="features">
+          <div class="feature card">
+            <h3>Image & PDF</h3>
+            <p>Draw regions on images or specify page coordinates for PDFs.</p>
+          </div>
+          <div class="feature card">
+            <h3>Office files</h3>
+            <p>Remove phrases in DOCX or redact cells & columns in XLSX.</p>
+          </div>
+          <div class="feature card">
+            <h3>Privacy-first</h3>
+            <p>Files are processed by the backend; downloads are redacted artifacts only.</p>
+          </div>
+        </div>
       </div>
-      <div style="margin-top:6px">
-        <button id="clearRects">Clear</button>
-        <button id="delRect">Delete Last</button>
+
+      <aside class="card">
+        <h3 style="margin-top:0">Redact a file</h3>
+        <div style="margin-bottom:10px">
+          <label class="form-label">Image / PDF</label>
+          <input id="file1" type="file" class="form-input" />
+        </div>
+
+        <div style="margin-bottom:10px">
+          <label class="form-label">Canvas Selector (images)</label>
+          <div style="border-radius:8px;overflow:hidden;background:#071122;padding:8px">
+            <div id="previewWrapper" style="position:relative;max-height:360px;overflow:auto;">
+              <canvas id="selectorCanvas" style="width:100%;height:200px;border-radius:8px;display:none;background:transparent"></canvas>
+              <object id="pdfPreview" type="application/pdf" style="display:none;width:100%;height:480px;border-radius:8px;border:1px solid #333"></object>
+              <img id="imgPreview" style="display:none;max-width:100%;border-radius:8px;border:1px solid #333" />
+              <img id="docPreview" style="display:none;max-width:100%;border-radius:8px;border:1px solid #333" />
+            </div>
+            <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+              <button id="btnDetect" class="ghost">Auto-detect</button>
+              <button id="btnRedactMore" class="ghost">Redact more</button>
+              <button id="btnAddRegion" class="ghost">Add Region</button>
+              <button id="btnClearRegions" class="ghost">Undo</button>
+              <button id="btnFullscreen" class="ghost">Fullscreen</button>
+            </div>
+            <div id="canvasControls" class="hidden"></div>
+            <div id="drawHint" style="display:none;margin-top:6px;color:#fff;font-size:13px">Drawing mode: click and drag on the preview to create a region. Press Esc to cancel.</div>
+            <div id="matchesArea" style="margin-top:8px">
+              <label><small>Detected matches (check to include):</small></label>
+              <ul id="matchesList" style="max-height:120px;overflow:auto;background:#fff;padding:8px;border-radius:6px;color:#000"></ul>
+            </div>
+            <div style="margin-top:8px;text-align:center">
+              <button id="btnApplyBelow" class="btn" style="padding:10px 18px;font-size:16px">Apply selected matches</button>
+            </div>
+
+            <div id="redactMorePanel" style="display:none;margin-top:8px;background:#fff;padding:8px;border-radius:6px;color:#000" class="hidden">
+              <label><small>Extracted text (select text and click "Add selected phrase")</small></label>
+              <textarea id="fullTextBox" style="width:100%;height:120px;margin-top:6px"></textarea>
+              <div style="display:flex;gap:8px;margin-top:6px">
+                <button id="btnAddSelectedPhrase" class="ghost">Add selected phrase</button>
+                <button id="btnCloseRedactMore" class="ghost">Close</button>
+              </div>
+            </div>
+            <div id="extraPhrasesArea" style="margin-top:6px" class="hidden">
+              <label><small>Add extra phrases (comma-separated):</small></label>
+              <input id="extraPhrases" class="form-input" placeholder='e.g. secret,John Doe' />
+            </div>
+            <div id="previewStatus" style="color:#fff;font-size:12px;margin-top:6px" class="hidden">Preview: idle</div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button id="clearRects" class="ghost">Clear</button>
+            <button id="delRect" class="ghost">Delete</button>
+          </div>
+        </div>
+
+        <div style="margin-bottom:10px">
+          <label class="form-label">Regions (JSON)</label>
+          <input id="regions" class="form-input" placeholder='e.g. [[10,10,100,50]] or [{"page":0,"rect":[10,10,100,50]}]' />
+        </div>
+
+          <!-- Mode selection removed (always using blackout) -->
+
+        <div style="text-align:right">
+          <button id="mainRedactBtn" class="btn hidden" onclick="sendImage()">Redact</button>
+        </div>
+      </aside>
+    </section>
+
+    <section id="docxControls" style="margin-top:26px; display:none">
+      <h2 style="display:none">DOCX / XLSX</h2>
+      <div class="card" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <label class="form-label">File</label>
+          <input id="file2" type="file" class="form-input" />
+        </div>
+        <div>
+          <label class="form-label">Phrases (JSON array)</label>
+          <input id="phrases" class="form-input" placeholder='e.g. ["secret","John Doe"]' />
+        </div>
+        <div>
+          <label class="form-label">Cells (JSON array)</label>
+          <input id="cells" class="form-input" placeholder='e.g. ["A1","B2"]' />
+        </div>
+        <div>
+          <label class="form-label">Columns (JSON array)</label>
+          <input id="columns" class="form-input" placeholder='e.g. ["C","D"] or [3]' />
+        </div>
+        <div>
+          <label class="form-label">Rows (JSON array)</label>
+          <input id="rows" class="form-input" placeholder='e.g. [1,2,5] or [[1,3],[5,7]] for ranges' />
+        </div>
       </div>
-    </div>
-    <div style="width:320px">
-      <label>Regions JSON (manual): <input id="regions" placeholder='e.g. [[10,10,100,50]] or [{"page":0,"rect":[10,10,100,50]}]' style="width:100%" /></label>
-      <label>Mode: <select id="mode"><option value="blackout">blackout</option><option value="blur">blur</option></select></label>
-      <div style="margin-top:6px">
-        <button onclick="sendImage()">Redact (image/pdf)</button>
+      <div style="margin-top:12px;text-align:right">
+        <button class="btn" onclick="sendDoc()">Redact Office File</button>
+        <!-- Download redacted from preview removed; use 'Redact Office File' to download after setting Rows/Columns -->
       </div>
-    </div>
+    </section>
+
+    <footer class="site-footer">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="muted">© Redaction demo</div>
+        <div class="muted">Need help? <a class="link" href="/static/docs.html">Docs</a></div>
+      </div>
+    </footer>
   </div>
 
-  <h2>DOCX / XLSX</h2>
-  <label>File: <input id="file2" type="file" /></label>
-  <label>Phrases (JSON list): <input id="phrases" placeholder='e.g. ["secret","John Doe"]' style="width:100%" /></label>
-  <label>Cells (JSON list): <input id="cells" placeholder='e.g. ["A1","B2"]' style="width:100%" /></label>
-  <label>Columns (JSON list): <input id="columns" placeholder='e.g. ["C","D"] or [3]' style="width:100%" /></label>
-  <button onclick="sendDoc()">Redact (docx/xlsx)</button>
-
   <script>
-  // selector helper will be injected by /static/js/selector.js
+  // Load Tesseract.js dynamically for client-side OCR fallback on images
+  (function(){
+    // load Tesseract and expose a promise so callers can wait for it
+    window.tesseractReady = new Promise((resolve, reject)=>{
+      const s = document.createElement('script');
+      s.src = 'https://unpkg.com/tesseract.js@2.1.5/dist/tesseract.min.js';
+      s.async = true;
+      s.onload = ()=>{ resolve(true); };
+      s.onerror = (e)=>{ console.warn('Failed to load tesseract.js', e); resolve(false); };
+      document.head.appendChild(s);
+    });
+  })();
+
+  // client-side regexes (mirror server)
+  const CLIENT_EMAIL_RE = /[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+/g;
+  const CLIENT_PHONE_RE = /\+?\d[\d\s\-\(\)]{6,}\d/g;
+  const CLIENT_ACC_RE = /\b\d{8,16}\b/g;
+  // keep original JS semantics — selector helper will be injected by /static/js/selector.js
   async function sendImage(){
+    // If an Office file is currently previewed, delegate to sendDoc() so the main Redact button works for DOCX/XLSX too
+    try{
+      const previewOffice = window.currentOfficeFile;
+      if(previewOffice && ((previewOffice.name||'').toLowerCase().endsWith('.xlsx') || (previewOffice.name||'').toLowerCase().endsWith('.docx'))){
+        // call sendDoc to handle office redaction/download
+        try{ await sendDoc(); return; }catch(e){ console.warn('sendDoc failed from sendImage', e); }
+      }
+    }catch(e){}
     const f = document.getElementById('file1').files[0];
     if(!f) return alert('pick file');
     const regionsManual = document.getElementById('regions').value;
     let regions = [];
-    if(!f.name.toLowerCase().endsWith('.pdf')){
+    if(! (f.name||'').toLowerCase().endsWith('.pdf')){
       try{ regions = window.selector.getRegions() || []; }catch(e){ regions = []; }
       if((!regions || regions.length==0) && regionsManual) regions = JSON.parse(regionsManual);
     } else {
       regions = regionsManual ? JSON.parse(regionsManual) : [];
     }
-    const mode = document.getElementById('mode').value;
-    const url = f.name.endsWith('.pdf')?'/redact/pdf':'/redact/image';
+    const mode = 'blackout';
+    const url = (f.name||'').toLowerCase().endsWith('.pdf') ? '/redact/pdf' : '/redact/image';
     const fd = new FormData();
     fd.append('file', f);
-    if(regions) fd.append('regions', JSON.stringify(regions));
+    // include any extra phrases (comma-separated) for PDFs — backend will search and redact them
+    if(f.name.toLowerCase().endsWith('.pdf')){
+      const extra = (document.getElementById('extraPhrases').value||'').split(',').map(s=>s.trim()).filter(Boolean);
+      if(extra.length>0) fd.append('phrases', JSON.stringify(extra));
+    }
+    // For PDFs the selector regions are canvas pixel boxes stacked vertically (pages concatenated).
+    // Convert [x,y,w,h] canvas regions into [{page: n, rect:[x0,y0,x1,y1]}] in PDF page coordinates.
+    if((f.name||'').toLowerCase().endsWith('.pdf')){
+      try{
+        // Prefer regions coming from the selector widget when available
+        try{
+          const sel = (window.selector && window.selector.getRegions) ? window.selector.getRegions() : null;
+          if(Array.isArray(sel) && sel.length>0){ regions = sel; }
+        }catch(e){}
+        const regsOut = [];
+        const zoom = 2.0; // server preview used zoom=2.0
+        const pageCount = Array.isArray(lastDetectResponse) ? lastDetectResponse.length : 1;
+        const pageHeight = pageCount>0 ? Math.round(canvas.height / pageCount) : canvas.height;
+        if(Array.isArray(regions)){
+          for(const r of regions){
+            if(!r) continue;
+            if(Array.isArray(r) && r.length>=4){
+              const x = Number(r[0]), y = Number(r[1]), w = Number(r[2]), h = Number(r[3]);
+              const page = Math.max(0, Math.min(pageCount-1, Math.floor(y / pageHeight)));
+              const yInPage = y - page*pageHeight;
+              const x0 = x/zoom; const y0 = yInPage/zoom; const x1 = (x+w)/zoom; const y1 = (yInPage + h)/zoom;
+              regsOut.push({page: page, rect: [x0, y0, x1, y1]});
+            } else if(r.page !== undefined && r.rect) {
+              regsOut.push(r);
+            }
+          }
+        }
+        fd.append('regions', JSON.stringify(regsOut));
+      }catch(e){ fd.append('regions', JSON.stringify(regions)); }
+    } else {
+      fd.append('regions', JSON.stringify(regions));
+      // include extra phrases for images so server can attempt OCR-based mapping
+      const extra = (document.getElementById('extraPhrases').value||'').split(',').map(s=>s.trim()).filter(Boolean);
+      if(extra.length>0) fd.append('phrases', JSON.stringify(extra));
+    }
     fd.append('mode', mode);
+    // Debug: log outgoing form data so we can see what is sent
+    try{
+      const dbg = {};
+      for(const e of fd.entries()){
+        try{ if(e[0]==='file'){ dbg.file = (e[1] && e[1].name) || 'file'; } else { dbg[e[0]] = e[1]; } }catch(err){}
+      }
+      console.log('Sending redact FormData:', dbg);
+    }catch(err){ console.warn('dbg formdata failed', err); }
+
+    // Do not open a popup. Use an anchor download or msSaveOrOpenBlob so the
+    // file downloads in-place without creating a blank new tab.
     const res = await fetch(url, {method:'POST', body:fd});
     if(!res.ok) return alert('error '+res.status);
+    // log response headers for debugging
+    try{
+      const hdrs = {};
+      for(const h of res.headers){ hdrs[h[0]] = h[1]; }
+      console.log('redact response headers:', hdrs);
+      if(hdrs['x-redacted'] === 'false'){
+        alert('Server returned an unmodified file (no redactions applied). Check regions/phrases.');
+      }
+    }catch(e){ console.warn('read headers failed', e); }
     const blob = await res.blob();
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'redacted-'+f.name;
-    a.click();
+    const filename = 'redacted-' + (f.name || 'file');
+    const blobUrl = URL.createObjectURL(blob);
+    try{
+      if(window.navigator && window.navigator.msSaveOrOpenBlob){
+        window.navigator.msSaveOrOpenBlob(blob, filename);
+      } else {
+        const anchor = document.createElement('a');
+        anchor.style.display = 'none';
+        anchor.href = blobUrl;
+        anchor.download = filename;
+        // ensure download happens in the same tab; do not set target
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+      }
+    }catch(e){
+      // final fallback: navigate to blob URL which will prompt download or display
+      try{ window.location.href = blobUrl; }catch(err){ console.warn('download failed', err); }
+    }
+    setTimeout(()=>{ try{ URL.revokeObjectURL(blobUrl); }catch(e){} }, 8000);
   }
 
   async function sendDoc(){
-    const f = document.getElementById('file2').files[0];
-    if(!f) return alert('pick file');
+    const fileElem = document.getElementById('file2');
+    let f = (fileElem && fileElem.files && fileElem.files[0]) ? fileElem.files[0] : null;
+    // fallback to the file used to generate the office preview, if any
+    if(!f && window.currentOfficeFile) f = window.currentOfficeFile;
+    if(!f) return alert('Please pick the Office file in the DOCX / XLSX panel');
     const fd = new FormData();
     fd.append('file', f);
-    if(f.name.endsWith('.docx')){
-      const phrases = document.getElementById('phrases').value;
+    if((f.name||'').toLowerCase().endsWith('.docx')){
+      let phrases = document.getElementById('phrases').value;
+      if(!phrases){ const extra = (document.getElementById('extraPhrases').value||'').split(',').map(s=>s.trim()).filter(Boolean); if(extra.length>0) phrases = JSON.stringify(extra); }
       if(phrases) fd.append('phrases', phrases);
+      // open popup synchronously to preserve user gesture
       const res = await fetch('/redact/docx', {method:'POST', body:fd});
       if(!res.ok) return alert('error');
       const blob = await res.blob();
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'redacted-'+f.name;
-      a.click();
+      const blobUrl = URL.createObjectURL(blob);
+      const filename = 'redacted-' + f.name;
+      try{
+        if(window.navigator && window.navigator.msSaveOrOpenBlob){
+          window.navigator.msSaveOrOpenBlob(blob, filename);
+        } else {
+          const anchor = document.createElement('a'); anchor.style.display='none'; anchor.href = blobUrl; anchor.download = filename; document.body.appendChild(anchor); anchor.click(); anchor.remove();
+        }
+      }catch(e){ try{ window.location.href = blobUrl; }catch(err){} }
     } else {
       const cells = document.getElementById('cells').value;
-      const cols = document.getElementById('columns').value;
+      let cols = document.getElementById('columns').value;
+      let rows = document.getElementById('rows') ? document.getElementById('rows').value : null;
+      // normalize rows/columns: if user entered plain CSV like "1,2,3" or "a,b,c", convert to JSON arrays
+      function parseRowsInput(s){
+        if(!s) return null;
+        s = s.trim();
+        if(s.startsWith('[')) return s; // assume already JSON
+        const out = [];
+        for(const part of s.split(',')){
+          const p = part.trim(); if(!p) continue;
+          if(p.indexOf('-')!==-1){ const [a,b] = p.split('-').map(x=>parseInt(x.trim(),10)); if(!isNaN(a) && !isNaN(b)) out.push([a,b]); }
+          else { const v = parseInt(p,10); if(!isNaN(v)) out.push(v); }
+        }
+        return JSON.stringify(out);
+      }
+      function parseColsInput(s){
+        if(!s) return null;
+        s = s.trim();
+        if(s.startsWith('[')) return s; // assume JSON
+        const out = [];
+        for(const part of s.split(',')){
+          const p = part.trim(); if(!p) continue;
+          if(/^\d+$/.test(p)) out.push(parseInt(p,10)); else out.push(p.toUpperCase());
+        }
+        return JSON.stringify(out);
+      }
+
       if(cells) fd.append('cells', cells);
-      if(cols) fd.append('columns', cols);
+      if(cols){ cols = parseColsInput(cols); if(cols) fd.append('columns', cols); }
+      if(rows){ rows = parseRowsInput(rows); if(rows) fd.append('rows', rows); }
+      // open popup synchronously to preserve user gesture
       const res = await fetch('/redact/xlsx', {method:'POST', body:fd});
       if(!res.ok) return alert('error');
       const blob = await res.blob();
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'redacted-'+f.name;
-      a.click();
+      const blobUrl = URL.createObjectURL(blob);
+      const filename = 'redacted-' + f.name;
+      try{
+        if(window.navigator && window.navigator.msSaveOrOpenBlob){
+          window.navigator.msSaveOrOpenBlob(blob, filename);
+        } else {
+          const anchor = document.createElement('a'); anchor.style.display='none'; anchor.href = blobUrl; anchor.download = filename; document.body.appendChild(anchor); anchor.click(); anchor.remove();
+        }
+      }catch(e){ try{ window.location.href = blobUrl; }catch(err){} }
     }
   }
+
+  
+
+  // (removed) Download redacted from preview button — user should set Rows/Columns then click 'Redact Office File' to download
+  </script>
+  <script src="/static/js/selector.js"></script>
+  <script>
+  // Preview + detection UI
+  (function(){
+    const fileInput = document.getElementById('file1');
+    const canvas = document.getElementById('selectorCanvas');
+    const pdfObj = document.getElementById('pdfPreview');
+    const imgEl = document.getElementById('imgPreview');
+    const docEl = document.getElementById('docPreview');
+    const status = document.getElementById('previewStatus');
+    const matchesList = document.getElementById('matchesList');
+    const btnDetect = document.getElementById('btnDetect');
+    const btnRedactMore = document.getElementById('btnRedactMore');
+    const btnApply = document.getElementById('btnApplyBelow');
+    const btnAddRegion = document.getElementById('btnAddRegion');
+    const btnClearRegions = document.getElementById('btnClearRegions');
+    
+    const btnFullscreen = document.getElementById('btnFullscreen');
+    const extraPhrases = document.getElementById('extraPhrases');
+    const redactMorePanel = document.getElementById('redactMorePanel');
+    const fullTextBox = document.getElementById('fullTextBox');
+    const btnAddSelectedPhrase = document.getElementById('btnAddSelectedPhrase');
+    const btnCloseRedactMore = document.getElementById('btnCloseRedactMore');
+    let lastDetectResponse = null;
+    let drawingActive = false;
+
+    function setStatus(s){ if(status) status.textContent = 'Preview: '+s; }
+    function hideAll(){ try{ canvas.style.display='none'; pdfObj.style.display='none'; imgEl.style.display='none'; docEl.style.display='none'; }catch(e){} }
+    let ctx = null; try{ ctx = canvas && canvas.getContext && canvas.getContext('2d'); }catch(e){ ctx = null; }
+    let currentFile = null; let pdfAsImageMode = false; // when true, fetch /preview/pdf and show canvas
+
+    async function runDetect(f){
+      if(!f) return;
+      try{
+        const fd = new FormData(); fd.append('file', f);
+        const res = await fetch('/detect', {method:'POST', body:fd});
+        // Allow the server to return an error payload with non-OK status; try to parse JSON
+        let j = null;
+        try{
+          j = await res.json();
+        }catch(e){ console.warn('detect: failed to parse JSON', e); setStatus('detect error'); return; }
+        if(!res.ok){ console.warn('detect returned non-OK, will use payload for fallback', j); }
+        
+        // For images, the server may not have OCR available. If server returned an error
+        // or no matches, run client-side OCR as a fallback (Tesseract.js) and populate matches.
+        lastDetectResponse = j;
+        // If image and no useful matches from server, try client OCR
+        const isImage = f.type && f.type.startsWith('image/');
+        const serverHas = (j && (Array.isArray(j.matches) ? j.matches.length>0 : (j && Object.keys(j).length>0 && !j.error)));
+        if(isImage && (!serverHas || (j.matches && j.matches.error))){
+          try{
+            const ocr = await ocrDetectImage(f);
+            if(ocr && ocr.matches && ocr.matches.length>0){ lastDetectResponse = {matches: ocr.matches}; }
+          }catch(e){ console.warn('client OCR failed', e); }
+        }
+        populateMatches(lastDetectResponse);
+      }catch(e){ console.error('detect error', e); setStatus('detect error'); }
+    }
+
+    // Perform client-side OCR using Tesseract.js and return matches {matches:[{text,rect}]}
+    async function ocrDetectImage(file){
+      // wait for tesseract to be loaded (resolve false on load error)
+      const ok = await (window.tesseractReady || Promise.resolve(false));
+      if(!ok || typeof Tesseract === 'undefined' || !Tesseract.recognize) return {matches:[]};
+      return new Promise((resolve, reject)=>{
+        const url = URL.createObjectURL(file);
+        const img = new Image(); img.crossOrigin = 'anonymous'; img.onload = async ()=>{
+          try{
+            const res = await Tesseract.recognize(img, 'eng', { logger: m=>{} });
+            console.log('tesseract result data keys', Object.keys(res && res.data || {}));
+            const words = (res && res.data && res.data.words) ? res.data.words : [];
+            // fallback: use lines or blocks if words empty
+            const lines = (res && res.data && res.data.lines) ? res.data.lines : [];
+            const blocks = (res && res.data && res.data.blocks) ? res.data.blocks : [];
+            const matches = [];
+            if((!words || words.length===0) && lines && lines.length>0) {
+              console.log('using lines from OCR as fallback, count=', lines.length);
+            }
+            if((!words || words.length===0) && (!lines || lines.length===0) && blocks && blocks.length>0){
+              console.log('using blocks from OCR as fallback, count=', blocks.length);
+            }
+            // prefer words, then lines, then blocks
+            const iterate = (words && words.length>0) ? words : ((lines && lines.length>0) ? lines : blocks);
+            for(const w of iterate){
+              const txt = (w && (w.text||w.word)) ? (w.text||w.word) : '';
+              if(!txt || txt.trim().length===0) continue;
+              // tesseract.js word boxes usually have bbox: {x0,y0,x1,y1}
+              let bbox = null;
+              if(w.bbox && typeof w.bbox.x0 !== 'undefined') bbox = w.bbox;
+              else if(typeof w.x0 !== 'undefined') bbox = {x0:w.x0, y0:w.y0, x1:w.x1, y1:w.y1};
+              else if(w.bbox && (w.bbox.x || w.bbox.y)) bbox = {x0:w.bbox.x, y0:w.bbox.y, x1:w.bbox.x + w.bbox.w, y1:w.bbox.y + w.bbox.h};
+              // match against client regexes
+              // always collect words into full_text; also populate matches if they look sensitive
+              if(bbox){
+                const x0 = Math.round(bbox.x0), y0 = Math.round(bbox.y0), x1 = Math.round(bbox.x1), y1 = Math.round(bbox.y1);
+                const rect = [x0, y0, x1 - x0, y1 - y0];
+                // add to matches only if regexes match
+                if(CLIENT_EMAIL_RE.test(txt) || CLIENT_PHONE_RE.test(txt) || CLIENT_ACC_RE.test(txt)){
+                  matches.push({text: txt, rect: rect});
+                }
+              } else {
+                if(CLIENT_EMAIL_RE.test(txt) || CLIENT_PHONE_RE.test(txt) || CLIENT_ACC_RE.test(txt)){
+                  matches.push({text: txt, rect: null});
+                }
+              }
+              // reset lastIndex for global regexes
+              CLIENT_EMAIL_RE.lastIndex = 0; CLIENT_PHONE_RE.lastIndex = 0; CLIENT_ACC_RE.lastIndex = 0;
+            }
+            // build full text from OCR result if available
+            const full_text = (res && res.data && res.data.text) ? res.data.text : ((iterate && iterate.length>0) ? iterate.map(w=> (w && (w.text||w.word)) ? (w.text||w.word) : '' ).join('\n') : '');
+            URL.revokeObjectURL(url);
+            resolve({matches: matches, full_text: full_text});
+          }catch(err){ URL.revokeObjectURL(url); reject(err); }
+        };
+        img.onerror = ()=>{ URL.revokeObjectURL(url); resolve({matches:[]}); };
+        img.src = url;
+      });
+    }
+
+    function populateMatches(j){ matchesList.innerHTML=''; if(!j) return;
+      // pdf: array per page; image: {matches: [...]}; docx/xlsx: {text_matches: [...], images: [...]}
+      if(Array.isArray(j)){
+        const pageCount = j.length; const zoom = 2.0;
+        for(let p=0;p<j.length;p++){
+          const pm = j[p]; for(const m of pm.matches||[]){
+            const li = document.createElement('li');
+            const id = 'm_'+Math.random().toString(36).slice(2,9);
+            li.innerHTML = `<label><input type="checkbox" data-type="pdf" data-page="${p}" data-rect='${JSON.stringify(m.rect)}' id="${id}" checked/> page ${p+1}: ${m.text}</label>`;
+            matchesList.appendChild(li);
+          }
+        }
+      } else if(j.matches){
+        for(const m of j.matches){ const li = document.createElement('li'); li.innerHTML=`<label><input type="checkbox" data-type="image" data-rect='${JSON.stringify(m.rect)}' checked/> ${m.text || JSON.stringify(m.rect)}</label>`; matchesList.appendChild(li); }
+      } else if(j.text_matches || j.images){
+        for(const t of (j.text_matches||[])){ const li = document.createElement('li'); li.innerHTML=`<label><input type="checkbox" data-type="text" data-text='${t}' checked/> ${t}</label>`; matchesList.appendChild(li); }
+        for(const im of (j.images||[])){ const li = document.createElement('li'); li.textContent = '[image] '+im; matchesList.appendChild(li); }
+      }
+    }
+
+    function applySelectedMatchesToCanvas(){
+      if(!window.selector) return;
+      const nodes = matchesList.querySelectorAll('input[type=checkbox]');
+      const rects = [];
+      for(const n of nodes){
+        if(!n.checked) continue;
+        const t = n.dataset.type;
+        if(t==='image' || t==='pdf'){
+          try{
+            const r = JSON.parse(n.dataset.rect); // r either [x,y,w,h] or [x0,y0,x1,y1]
+            if(r && r.length===4){
+              if(t==='pdf' && (r[2]>r[0] || r[3]>r[1])){
+                // pdf rects are [x0,y0,x1,y1] -> convert to [x,y,w,h] and scale by preview zoom
+                rects.push([r[0]*2.0, r[1]*2.0, (r[2]-r[0])*2.0, (r[3]-r[1])*2.0]);
+              } else if(t==='image'){
+                rects.push(r);
+              } else {
+                rects.push([r[0], r[1], r[2]-r[0], r[3]-r[1]]);
+              }
+            }
+          }catch(e){ console.warn('parse rect failed', e); }
+        } else if(t==='text'){
+          // try to map text-only match to existing detected rects from lastDetectResponse
+          try{
+            const phrase = (n.dataset.text||'').toLowerCase();
+            if(!phrase) continue;
+            if(lastDetectResponse){
+              if(Array.isArray(lastDetectResponse)){
+                for(let p=0;p<lastDetectResponse.length;p++){
+                  for(const m of (lastDetectResponse[p].matches||[])){
+                    try{
+                      if((m.text||'').toLowerCase().includes(phrase) && m.rect){
+                        const r = m.rect; const zoom = 2.0; const pageHeight = Math.round(canvas.height / lastDetectResponse.length);
+                        rects.push([Math.round(r[0]*zoom), Math.round(r[1]*zoom) + p*pageHeight, Math.round((r[2]-r[0])*zoom), Math.round((r[3]-r[1])*zoom)]);
+                        throw 'found_text_rect';
+                      }
+                    }catch(e){ if(e==='found_text_rect') break; }
+                  }
+                }
+              } else if(lastDetectResponse.matches){
+                for(const m of (lastDetectResponse.matches||[])){
+                  try{
+                    if((m.text||'').toLowerCase().includes(phrase) && m.rect){ rects.push(m.rect); break; }
+                  }catch(e){}
+                }
+              }
+            } else {
+              // no detection results — if office preview exists, mask text there immediately
+              try{ const office = document.getElementById('officePreview'); if(office){ const esc = phrase.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'); const re = new RegExp(esc, 'gi'); office.innerHTML = office.innerHTML.replace(re, (m)=>`<span style="background:black;color:black;">${m}</span>`); } }catch(e){}
+            }
+          }catch(e){ console.warn('mapping text->rect failed', e); }
+        }
+      }
+      try{ window.selector.setRegions(rects); }catch(e){ console.warn('apply matches failed', e); }
+      try{ updatePreviewRedactions(); }catch(e){}
+    }
+
+    // draw detection rectangles onto overlay (PDFs rendered as concatenated pages image)
+    function renderDetectionsOnCanvas(j){
+      if(!j) return;
+      const rects = [];
+      const zoom = 2.0; // server preview uses zoom=2.0
+      if(Array.isArray(j)){
+        const pageCount = j.length || 1;
+        const pageHeight = Math.round(canvas.height / pageCount);
+        for(let p=0;p<j.length;p++){
+          const pm = j[p];
+          for(const m of (pm.matches||[])){
+            try{
+              const r = m.rect; // [x0,y0,x1,y1]
+              const x = Math.round(r[0]*zoom);
+              const y = Math.round(r[1]*zoom) + p*pageHeight;
+              const w = Math.round((r[2]-r[0])*zoom);
+              const h = Math.round((r[3]-r[1])*zoom);
+              rects.push([x,y,w,h]);
+            }catch(e){ }
+          }
+        }
+      } else if(j.matches){
+        for(const m of j.matches){ if(m.rect) rects.push(m.rect); }
+      }
+      try{ window.selector.setRegions(rects); }catch(e){ console.warn('render detections', e); }
+    }
+
+    // draw black filled boxes on a transparent overlay above the image to preview redaction
+    function drawBlackBoxesOnBg(j){
+      try{
+        // create or reuse an overlay canvas positioned above the image
+        let black = document.getElementById('blackOverlay');
+        const wrapper = document.getElementById('previewWrapper');
+        if(!black){ black = document.createElement('canvas'); black.id = 'blackOverlay'; black.style.position='absolute'; black.style.left='0'; black.style.top='0'; black.style.zIndex = 20; black.style.pointerEvents='none'; wrapper.insertBefore(black, canvas);
+        }
+        // make sure image is visible
+        try{ docEl.style.display='block'; }catch(e){}
+        // size overlay to the image natural size
+        const imgW = canvas.width || black.width || 0; const imgH = canvas.height || black.height || 0;
+        black.width = imgW; black.height = imgH;
+        black.style.width = '100%'; // match display width
+        black.style.height = (black.height && black.width) ? Math.round((black.height/black.width)*(wrapper.clientWidth||black.width)) + 'px' : 'auto';
+        const bctx = black.getContext('2d'); bctx.clearRect(0,0,black.width, black.height);
+        bctx.fillStyle = 'black';
+        const zoom = 2.0;
+        if(Array.isArray(j)){
+          const pageCount = j.length || 1; const pageHeight = Math.round(black.height / pageCount);
+          for(let p=0;p<j.length;p++){
+            for(const m of (j[p].matches||[])){
+              try{
+                const r = m.rect; const x = Math.round(r[0]*zoom); const y = Math.round(r[1]*zoom) + p*pageHeight; const w = Math.round((r[2]-r[0])*zoom); const h = Math.round((r[3]-r[1])*zoom);
+                bctx.fillRect(x,y,w,h);
+              }catch(e){}
+            }
+          }
+        }
+      }catch(e){ console.warn('draw black boxes', e); }
+    }
+
+    // draw blurred patches or black boxes based on current selector regions and mode
+    function updatePreviewRedactions(){
+      try{
+        const black = document.getElementById('blackOverlay'); if(!black) return;
+        const bctx = black.getContext('2d'); bctx.clearRect(0,0,black.width, black.height);
+        const mode = 'blackout';
+        const canvasRegions = (window.selector && window.selector.getCanvasRegions) ? window.selector.getCanvasRegions() : [];
+        if(!canvasRegions || !canvasRegions.length) return;
+        if(mode === 'blur'){
+          // for each region, copy pixels to temp canvas, apply blur filter, and draw back
+          for(const r of canvasRegions){ try{
+              const [x,y,w,h] = r;
+              if(w<=0 || h<=0) continue;
+              const tmp = document.createElement('canvas'); tmp.width = w; tmp.height = h;
+              const tctx = tmp.getContext('2d');
+              // copy region from underlying image/canvas
+              // underlying content is drawn on `canvas` element
+              tctx.drawImage(canvas, x, y, w, h, 0, 0, w, h);
+              // apply blur filter and draw back to black overlay
+              bctx.save();
+              bctx.filter = 'blur(8px)';
+              bctx.drawImage(tmp, x, y, w, h);
+              bctx.restore();
+            }catch(e){}
+          }
+        } else {
+          // blackout mode: draw solid black rects
+          bctx.fillStyle = 'black';
+          for(const r of canvasRegions){ try{ const [x,y,w,h] = r; bctx.fillRect(x,y,w,h); }catch(e){} }
+        }
+      }catch(e){ console.warn('update preview redactions', e); }
+    }
+
+    // Auto-redact helper (minimal no-op to avoid parse errors). The full implementation
+    // was removed because it previously caused a JS parse failure in some browsers.
+    async function autoRedactAndUpdatePreview(file, type){
+      // Intentionally left empty: previews are handled by explicit preview endpoints.
+      return;
+    }
+
+    function setPreviewUIVisible(visible){
+      const elems = ['matchesArea','btnApplyBelow','redactMorePanel','extraPhrasesArea','previewStatus','clearRects','delRect','regions','mainRedactBtn'];
+      for(const id of elems){ try{ const el = document.getElementById(id); if(!el) continue; if(visible) el.classList.remove('hidden'); else el.classList.add('hidden'); }catch(e){} }
+      // canvas control buttons: show the row of buttons when visible
+      try{ const cbs = ['btnDetect','btnRedactMore','btnAddRegion','btnClearRegions','btnFullscreen']; for(const b of cbs){ const be = document.getElementById(b); if(be) { if(visible) be.classList.remove('hidden'); else be.classList.add('hidden'); } } }catch(e){}
+    }
+
+    // initialize UI hidden until a file is selected
+    try{ setPreviewUIVisible(false); }catch(e){}
+
+    fileInput.addEventListener('change', async ()=>{
+      currentFile = fileInput.files && fileInput.files[0]; if(!currentFile){ setPreviewUIVisible(false); return; }
+      setPreviewUIVisible(true);
+      pdfAsImageMode = false; // reset
+      hideAll(); setStatus('loading');
+      const name = (currentFile.name||'').toLowerCase();
+      if(name.endsWith('.pdf')){
+        // request rendered preview PNG from server and show as image with overlay canvas
+        setStatus('requesting preview (pdf)');
+        const fd = new FormData(); fd.append('file', currentFile);
+        const res = await fetch('/preview/pdf', {method:'POST', body:fd});
+        if(!res.ok){ setStatus('error'); alert('Preview failed'); return; }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        // show the image preview element too (keeps visible under overlays)
+        try{ docEl.src = url; docEl.style.display='block'; docEl.style.width='100%'; docEl.style.height='auto'; }catch(e){}
+        // show the image preview element and overlay selector/black overlay above it
+        const wrapper = document.getElementById('previewWrapper'); wrapper.style.position = 'relative';
+        try{ docEl.src = url; docEl.style.display = 'block'; docEl.style.width = '100%'; docEl.style.height = 'auto'; docEl.style.position='relative'; docEl.style.zIndex='1'; docEl.style.pointerEvents='none'; }catch(e){}
+        // make selector canvas absolute overlay
+        canvas.style.position = 'absolute'; canvas.style.left='0'; canvas.style.top='0'; canvas.style.zIndex = 50;
+        // wait for image to load then size overlay canvases
+        await new Promise((resolve)=>{
+          docEl.onload = ()=>{
+            try{
+              const naturalW = docEl.naturalWidth || 800;
+              const naturalH = docEl.naturalHeight || Math.round(naturalW * 1.3);
+              // compute displayed height based on wrapper width
+              const wrapperW = (wrapper.clientWidth && wrapper.clientWidth>0) ? wrapper.clientWidth : Math.min(naturalW, 800);
+              const dispH = Math.round((naturalH/naturalW) * wrapperW);
+              // size selector canvas
+              canvas.width = naturalW; canvas.height = naturalH;
+              canvas.style.width = '100%'; canvas.style.height = dispH + 'px';
+              // create black overlay canvas (transparent) that sits between image and selector outlines
+              let black = document.getElementById('blackOverlay');
+              if(!black){ black = document.createElement('canvas'); black.id = 'blackOverlay'; black.style.position='absolute'; black.style.left='0'; black.style.top='0'; black.style.zIndex = 40; black.style.pointerEvents='none'; wrapper.insertBefore(black, canvas); }
+              black.width = naturalW; black.height = naturalH; black.style.width = '100%'; black.style.height = dispH + 'px';
+              // ensure the image is behind the overlays
+              try{ docEl.style.position='relative'; docEl.style.zIndex='1'; }catch(e){}
+              try{ window.selector.attach('selectorCanvas'); window.selector.setOriginalSize(canvas.width, canvas.height); }catch(e){}
+              setStatus('ready (pdf)');
+              if(lastDetectResponse) drawBlackBoxesOnBg(lastDetectResponse);
+              wrapper.style.minHeight = (dispH + 8) + 'px';
+            }catch(e){ console.warn('doc load', e); }
+            resolve();
+          };
+        });
+        // run detection (backend returns per-page matches)
+        await runDetect(currentFile);
+        // if we already have detections, draw overlays (selector regions)
+        if(lastDetectResponse) {
+          renderDetectionsOnCanvas(lastDetectResponse);
+          // also apply detection rects into the selector regions and update Regions input
+          try{
+            const applied = [];
+            const zoom = 2.0;
+            if(Array.isArray(lastDetectResponse)){
+              const pageCount = lastDetectResponse.length || 1;
+              const pageHeight = Math.round(canvas.height / pageCount);
+              for(let p=0;p<lastDetectResponse.length;p++){
+                for(const m of (lastDetectResponse[p].matches||[])){
+                  try{
+                    const r = m.rect;
+                    const x = Math.round(r[0]*zoom);
+                    const y = Math.round(r[1]*zoom) + p*pageHeight;
+                    const w = Math.round((r[2]-r[0])*zoom);
+                    const h = Math.round((r[3]-r[1])*zoom);
+                    applied.push([x,y,w,h]);
+                  }catch(e){}
+                }
+              }
+            } else if(lastDetectResponse && lastDetectResponse.matches){
+              for(const m of lastDetectResponse.matches){ if(m.rect) applied.push(m.rect); }
+            }
+            try{ if(window.selector && window.selector.setRegions) window.selector.setRegions(applied); }catch(e){}
+            try{ document.getElementById('regions').value = JSON.stringify(window.selector.getRegions ? window.selector.getRegions() : applied); }catch(e){}
+          }catch(e){ console.warn('apply detections to selector failed', e); }
+        }
+        // attempt automatic redaction and update preview (no automatic download)
+        try{ await autoRedactAndUpdatePreview(currentFile, 'pdf'); }catch(e){ console.warn('auto redact pdf', e); }
+      } else if(currentFile.type && currentFile.type.startsWith('image/')){
+        // show image element and size overlay canvases to match
+        const url = URL.createObjectURL(currentFile);
+        imgEl.src = url;
+        imgEl.style.display = 'block'; imgEl.style.width = '100%'; imgEl.style.height = 'auto';
+        const wrapper = document.getElementById('previewWrapper'); wrapper.style.position = 'relative';
+        // wait for image to load then size canvases
+        await new Promise((resolve)=>{
+          imgEl.onload = ()=>{
+            try{
+              const naturalW = imgEl.naturalWidth || 800;
+              const naturalH = imgEl.naturalHeight || Math.round(naturalW * 1.0);
+              const wrapperW = (wrapper.clientWidth && wrapper.clientWidth>0) ? wrapper.clientWidth : Math.min(naturalW, 800);
+              const dispH = Math.round((naturalH/naturalW) * wrapperW);
+              // size selector canvas to image natural pixels and scale display to wrapper
+              canvas.width = naturalW; canvas.height = naturalH;
+              // compute displayed CSS size to match the image element
+              const imgClientW = imgEl.clientWidth || wrapperW;
+              const imgClientH = dispH;
+              canvas.style.position = 'absolute';
+              canvas.style.left = (imgEl.offsetLeft || 0) + 'px';
+              canvas.style.top = (imgEl.offsetTop || 0) + 'px';
+              canvas.style.width = imgClientW + 'px'; canvas.style.height = imgClientH + 'px';
+              canvas.style.zIndex = 50; canvas.style.pointerEvents = 'none';
+              // draw the image into the canvas so overlays/blur work from canvas pixels
+              try{ const cctx = canvas.getContext('2d'); cctx.clearRect(0,0,canvas.width,canvas.height); cctx.drawImage(imgEl, 0, 0, canvas.width, canvas.height); }catch(e){ console.warn('drawImage to canvas failed', e); }
+              // create or update black overlay canvas that sits between image and selector outlines
+              let black = document.getElementById('blackOverlay');
+              if(!black){ black = document.createElement('canvas'); black.id = 'blackOverlay'; black.style.position='absolute'; black.style.zIndex = 40; black.style.pointerEvents='none'; wrapper.appendChild(black); }
+              black.width = naturalW; black.height = naturalH; black.style.left = (imgEl.offsetLeft || 0) + 'px'; black.style.top = (imgEl.offsetTop || 0) + 'px';
+              black.style.width = imgClientW + 'px'; black.style.height = imgClientH + 'px';
+              try{ window.selector.attach('selectorCanvas'); window.selector.setOriginalSize(canvas.width, canvas.height); window.selector.setRegions([]); }catch(e){}
+              wrapper.style.minHeight = (dispH + 8) + 'px';
+              setStatus('ready (image)');
+            }catch(e){ console.warn('image load sizing', e); setStatus('error'); }
+            resolve();
+          };
+          imgEl.onerror = ()=>{ setStatus('error'); resolve(); };
+        });
+        console.log('runDetect: calling /detect for image');
+        await runDetect(currentFile);
+        // if detections exist for the image, render them and apply to selector
+        if(lastDetectResponse && lastDetectResponse.matches){
+          try{
+            const applied = [];
+            for(const m of lastDetectResponse.matches){ if(m.rect) applied.push(m.rect); }
+            try{ if(window.selector && window.selector.setRegions) window.selector.setRegions(applied); }catch(e){}
+            try{ document.getElementById('regions').value = JSON.stringify(window.selector.getRegions ? window.selector.getRegions() : applied); }catch(e){}
+            try{ updatePreviewRedactions(); }catch(e){}
+          }catch(e){ console.warn('apply image detections failed', e); }
+        }
+      } else if(name.endsWith('.docx')||name.endsWith('.xlsx')){
+        // request server preview HTML for Office files and handle fallback cases
+        setStatus('requesting preview (office)');
+        const fd = new FormData(); fd.append('file', currentFile); fd.append('format', 'html');
+        const endpoint = name.endsWith('.docx')?'/preview/docx':'/preview/xlsx';
+        // ask for HTML preview and request more columns when previewing spreadsheets
+        if(name.endsWith('.xlsx')) fd.append('max_cols', '300');
+        const res = await fetch(endpoint, {method:'POST', body:fd});
+        if(!res.ok){ setStatus('error'); alert('Preview failed'); return; }
+        const wrapper = document.getElementById('previewWrapper');
+        // ensure office preview container exists
+        let office = document.getElementById('officePreview');
+        if(!office){ office = document.createElement('div'); office.id = 'officePreview'; office.style.padding = '8px'; office.style.background = '#fff'; office.style.borderRadius = '6px'; office.style.color = '#000'; office.style.maxHeight = '600px'; office.style.overflow = 'auto'; wrapper.appendChild(office); }
+        // hide image/canvas elements but keep them in DOM for image/pdf flows
+        try{ canvas.style.display='none'; pdfObj.style.display='none'; imgEl.style.display='none'; docEl.style.display='none'; }catch(e){}
+        const ctype = (res.headers.get('Content-Type')||'').toLowerCase();
+        if(ctype.indexOf('text/html') !== -1){
+          const html = await res.text();
+          office.innerHTML = html;
+        } else if(ctype.indexOf('image/') !== -1){
+          // server returned image (fallback) — show as image
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          office.innerHTML = '';
+          docEl.src = url; docEl.style.display='block'; docEl.style.width='100%'; docEl.style.height='auto';
+        } else {
+          // unknown content-type: try text; if binary, show download prompt
+          const txt = await res.text();
+          if(txt && txt.trim().startsWith('<')){
+            office.innerHTML = txt;
+          } else {
+            office.innerHTML = '<div style="padding:12px;color:#900">Preview unavailable. Use the button below to download and open in Excel.</div>';
+          }
+        }
+        // add a small toolbar to download/open original file in Excel and redact controls
+        try{
+          let toolbar = document.getElementById('officeToolbar');
+          if(!toolbar){ toolbar = document.createElement('div'); toolbar.id = 'officeToolbar'; toolbar.style.display='flex'; toolbar.style.gap='8px'; toolbar.style.marginTop='8px'; office.parentNode.insertBefore(toolbar, office.nextSibling); }
+          toolbar.innerHTML = '';
+          const dl = document.createElement('button'); dl.className='ghost'; dl.textContent='Download original (Open in Excel)';
+          dl.addEventListener('click', ()=>{ const url = URL.createObjectURL(currentFile); const a=document.createElement('a'); a.href=url; a.download=currentFile.name; a.click(); });
+          toolbar.appendChild(dl);
+
+          // Show summary stats (rows, cols, total cells)
+          const summary = document.createElement('div'); summary.id = 'officeSummary'; summary.style.marginLeft = '8px'; summary.style.alignSelf = 'center'; summary.style.color = '#222'; summary.textContent = '';
+          toolbar.appendChild(summary);
+
+          // Selection state
+          let selectionMode = null; // 'rows'|'cols'|null
+          const selectedRows = new Set();
+          const selectedCols = new Set();
+
+          // Buttons: prompt-based redact rows/columns (set inputs in the DOCX/XLSX panel)
+          const selectRowsBtn = document.createElement('button'); selectRowsBtn.className='ghost'; selectRowsBtn.textContent='Redact Rows';
+          const selectColsBtn = document.createElement('button'); selectColsBtn.className='ghost'; selectColsBtn.textContent='Redact Columns';
+
+          toolbar.appendChild(selectRowsBtn);
+          toolbar.appendChild(selectColsBtn);
+
+          selectRowsBtn.addEventListener('click', ()=>{
+            const input = prompt('Enter rows to redact (e.g. 4,5 or 2-5):');
+            if(!input) return;
+            const parsed = parseRangeList(input);
+            // set the Rows field in the DOCX/XLSX controls as JSON
+            try{ document.getElementById('rows').value = JSON.stringify(parsed); }catch(e){}
+            alert('Rows set for redaction: ' + JSON.stringify(parsed));
+          });
+
+          selectColsBtn.addEventListener('click', ()=>{
+            const input = prompt('Enter columns to redact (e.g. A,C or 1,3):');
+            if(!input) return;
+            const parsed = parseColumnsList(input);
+            try{ document.getElementById('columns').value = JSON.stringify(parsed); }catch(e){}
+            alert('Columns set for redaction: ' + JSON.stringify(parsed));
+          });
+
+          // compute table stats if possible and attach click handlers
+          try{
+            const tbl = office.querySelector('table');
+            if(tbl){
+              const thead = tbl.querySelector('thead');
+              const tbody = tbl.querySelector('tbody') || tbl;
+              const colCount = thead ? thead.rows[0].cells.length : (tbl.rows[0] ? tbl.rows[0].cells.length : 0);
+              const rowCount = (tbody.tBodies && tbody.tBodies[0]) ? tbody.tBodies[0].rows.length : (tbl.rows.length - (thead? thead.rows.length:0));
+              summary.textContent = `Rows: ${rowCount} · Columns: ${colCount} · Cells: ${rowCount*colCount}`;
+              // attach handlers for selection toggling
+              attachTableSelectionHandlers(tbl);
+            }
+          }catch(e){}
+
+          function addSelectionHints(mode){
+            const tbl = office.querySelector('table'); if(!tbl) return;
+            if(mode==='rows'){
+              // highlight row headers on hover
+              for(const r of tbl.rows){ r.style.cursor='pointer'; }
+            } else if(mode==='cols'){
+              const header = tbl.querySelector('thead') || tbl.rows[0]; if(!header) return;
+              for(const th of header.cells){ th.style.cursor='pointer'; }
+            }
+          }
+
+          function removeSelectionHints(){ const tbl = office.querySelector('table'); if(!tbl) return; for(const r of tbl.rows){ r.style.cursor=''; r.classList.remove('selected-row'); } const header = tbl.querySelector('thead') || tbl.rows[0]; if(header){ for(const th of header.cells){ th.style.cursor=''; th.classList.remove('selected-col'); } } }
+
+          function attachTableSelectionHandlers(tbl){
+            // row click toggles selection when selectionMode==='rows'
+            for(let i=0;i<tbl.rows.length;i++){
+              const row = tbl.rows[i];
+              // skip header row(s)
+              row.addEventListener('click', (ev)=>{
+                if(!selectionMode) return;
+                const thead = tbl.querySelector('thead');
+                const headerRows = thead ? thead.rows.length : 1;
+                const rowIndex = i - headerRows + 1; // 1-indexed data rows
+                if(selectionMode==='rows'){
+                  if(rowIndex<1) return;
+                  const key = rowIndex;
+                  if(selectedRows.has(key)){ selectedRows.delete(key); row.classList.remove('selected-row'); }
+                  else { selectedRows.add(key); row.classList.add('selected-row'); }
+                  updateDownloadButtonState();
+                  updateDownloadButtonState();
+                }
+              });
+            }
+            // header cells for columns
+            const header = tbl.querySelector('thead') || tbl.rows[0];
+            if(header){
+              for(let ci=0;ci<header.cells.length;ci++){
+                const th = header.cells[ci];
+                th.addEventListener('click', (ev)=>{
+                  if(!selectionMode) return;
+                  if(selectionMode!=='cols') return;
+                  const colKey = ci+1; // 1-indexed
+                  // toggle selected class across rows
+                  const already = selectedCols.has(colKey) || selectedCols.has(columnLetter(colKey));
+                  if(already){ selectedCols.delete(colKey); selectedCols.delete(columnLetter(colKey)); th.classList.remove('selected-col'); for(const r of tbl.rows){ if(r.cells[ci]) r.cells[ci].classList.remove('selected-col'); } }
+                  else { selectedCols.add(colKey); selectedCols.add(columnLetter(colKey)); th.classList.add('selected-col'); for(const r of tbl.rows){ if(r.cells[ci]) r.cells[ci].classList.add('selected-col'); } }
+                  updateDownloadButtonState();
+                });
+              }
+            }
+          }
+
+          function columnLetter(n){ let s=''; while(n>0){ n--; s = String.fromCharCode(65 + (n%26)) + s; n = Math.floor(n/26);} return s; }
+
+          function updateDownloadButtonState(){ /* no-op for prompt-based redaction */ }
+
+
+          // helper: parse ranges like "1,2,5-8" -> [1,2,[5,8]]
+          function parseRangeList(s){
+            const out = [];
+            for(const part of s.split(',')){
+              const p = part.trim(); if(!p) continue;
+              if(p.indexOf('-')!==-1){ const [a,b] = p.split('-').map(x=>parseInt(x.trim(),10)); if(!isNaN(a) && !isNaN(b)) out.push([a,b]); }
+              else { const v = parseInt(p,10); if(!isNaN(v)) out.push(v); }
+            }
+            return out;
+          }
+
+          // helper: parse columns input (letters or numbers)
+          function parseColumnsList(s){
+            const out = [];
+            for(const part of s.split(',')){
+              const p = part.trim(); if(!p) continue;
+              if(/^\d+$/.test(p)) out.push(parseInt(p,10)); else out.push(p.toUpperCase());
+            }
+            return out;
+          }
+
+          // redact current xlsx using the previewed file (currentFile)
+          async function redactCurrentXlsx(rows, columns){
+            if(!currentFile) return alert('No file selected');
+            try{
+              setStatus('redacting xlsx...');
+              const fd2 = new FormData(); fd2.append('file', currentFile);
+              // if rows/columns args not provided, use selections
+              if(!rows && selectedRows.size) rows = Array.from(selectedRows).sort((a,b)=>a-b);
+              if(!columns && selectedCols.size) columns = Array.from(selectedCols).map(c=> (typeof c==='number'?c:c));
+              if(rows) fd2.append('rows', JSON.stringify(rows));
+              if(columns) fd2.append('columns', JSON.stringify(columns));
+              const res2 = await fetch('/redact/xlsx', {method:'POST', body: fd2});
+              if(!res2.ok){ setStatus('error'); return alert('Redact failed'); }
+              const blob = await res2.blob();
+              const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'redacted-'+(currentFile.name||'file.xlsx'); a.click();
+              setStatus('ready');
+            }catch(e){ console.warn('redact current xlsx', e); setStatus('error'); alert('Redact failed'); }
+          }
+
+        }catch(e){ }
+        // expose the current office file so sendDoc() can use it if the file input is empty
+        try{ window.currentOfficeFile = currentFile; }catch(e){}
+        setStatus('ready (office)');
+        // attempt automatic redaction for office files (update preview but don't auto-download)
+        try{ await autoRedactAndUpdatePreview(currentFile, name.endsWith('.docx') ? 'docx' : 'xlsx'); }catch(e){ console.warn('auto redact office', e); }
+        // still run detection to populate matches list
+        await runDetect(currentFile);
+      } else { setStatus('unsupported'); alert('Preview not available'); }
+    });
+
+    btnDetect.addEventListener('click', ()=>{ if(currentFile) runDetect(currentFile); });
+    btnApply.addEventListener('click', applySelectedMatchesToCanvas);
+    btnRedactMore.addEventListener('click', ()=>{
+      // show panel with extracted text so the user can select phrases to add
+      (async function(){
+        try{
+          setStatus('extracting full text...');
+          // prefer server-side extraction endpoint
+          const fd = new FormData(); fd.append('file', currentFile);
+          const res = await fetch('/extract', { method: 'POST', body: fd });
+          let j = null;
+          try{ j = await res.json(); }catch(e){ j = null; }
+          let txt = '';
+          if(j && j.full_text){ txt = j.full_text; }
+          // if server returned empty for image, try client OCR fallback
+          if(!txt && currentFile && currentFile.type && currentFile.type.startsWith('image/')){
+            try{
+              const ocr = await ocrDetectImage(currentFile);
+              // prefer full OCR text when available, fall back to detected matches
+              if(ocr && ocr.full_text && ocr.full_text.trim()) txt = ocr.full_text;
+              else txt = (ocr.matches||[]).map(m=>m.text||'').join('\n');
+            }catch(e){ console.warn('client OCR fallback failed', e); }
+          }
+          // As a fallback, if we have lastDetectResponse, include detected texts
+          if(!txt && lastDetectResponse){
+            if(Array.isArray(lastDetectResponse)){
+              const parts = [];
+              for(const pg of lastDetectResponse){ for(const m of (pg.matches||[])) parts.push(m.text||''); }
+              txt = parts.join('\n');
+            } else if(lastDetectResponse.matches){ txt = (lastDetectResponse.matches||[]).map(m=>m.text||'').join('\n'); }
+          }
+          fullTextBox.value = txt;
+          redactMorePanel.style.display='block';
+          setStatus('ready');
+        }catch(e){ console.warn('redact more', e); setStatus('error'); }
+      })();
+    });
+
+    btnAddSelectedPhrase.addEventListener('click', async ()=>{
+      try{
+        const ta = fullTextBox;
+        const start = ta.selectionStart||0; const end = ta.selectionEnd||ta.value.length;
+        const phrase = ta.value.substring(start,end).trim();
+        if(!phrase || phrase.length<2) return alert('Select some text to add');
+        // append to extraPhrases input (comma separated)
+        const cur = (extraPhrases.value||'').trim();
+        extraPhrases.value = cur ? (cur + ',' + phrase) : phrase;
+        // also add to matches list so user can apply it
+        const li = document.createElement('li');
+        li.innerHTML = `<label><input type="checkbox" data-type="text" data-text='${phrase.replace(/'/g,"\\'")}' checked/> ${phrase}</label>`;
+        matchesList.insertBefore(li, matchesList.firstChild);
+        // if office preview is showing, mask occurrences immediately for quick feedback
+        try{
+          const office = document.getElementById('officePreview');
+          if(office){
+            const esc = phrase.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+            const re = new RegExp(esc, 'gi');
+            office.innerHTML = office.innerHTML.replace(re, (m)=>`<span style="background:black;color:black;">${m}</span>`);
+          }
+        }catch(e){}
+        // attempt to find a matching detected rect and add it to the selector overlay
+        try{
+          const phraseLower = phrase.toLowerCase();
+          try{ if(currentFile) await runDetect(currentFile); }catch(e){ console.warn('re-run detect failed', e); }
+          if(lastDetectResponse){
+            if(Array.isArray(lastDetectResponse)){
+              for(let p=0;p<lastDetectResponse.length;p++){
+                for(const m of (lastDetectResponse[p].matches||[])){
+                  if((m.text||'').toLowerCase().includes(phraseLower)){
+                    const r = m.rect; const zoom=2.0; const pageHeight = Math.round(canvas.height / lastDetectResponse.length);
+                    const mapped = [Math.round(r[0]*zoom), Math.round(r[1]*zoom) + p*pageHeight, Math.round((r[2]-r[0])*zoom), Math.round((r[3]-r[1])*zoom)];
+                    const existing = window.selector.getCanvasRegions ? window.selector.getCanvasRegions() : [];
+                    existing.push(mapped);
+                    window.selector.setRegions(existing);
+                    try{ updatePreviewRedactions(); }catch(e){}
+                    // also check the corresponding matches checkbox if present
+                    const inputs = matchesList.querySelectorAll('input[data-type=pdf]');
+                    for(const ip of inputs){ try{ const rect = JSON.parse(ip.dataset.rect); if(rect && rect[0]===r[0] && rect[1]===r[1]){ ip.checked = true; break; } }catch(e){} }
+                    throw 'done';
+                  }
+                }
+              }
+            }
+          }
+        }catch(e){ /* swallow sentinel */ }
+        // If we didn't find a rect above and this is an image, try client OCR to map the phrase to boxes
+        try{
+          const phraseLower = phrase.toLowerCase();
+          const isImage = currentFile && currentFile.type && currentFile.type.startsWith('image/');
+          if(isImage){
+            // run client OCR and search matches
+            try{
+              const ocr = await ocrDetectImage(currentFile);
+              if(ocr && ocr.matches){
+                const foundRects = [];
+                for(const m of (ocr.matches||[])){
+                  if((m.text||'').toLowerCase().includes(phraseLower) && m.rect){
+                    foundRects.push(m.rect);
+                  }
+                }
+                if(foundRects.length>0){
+                  const existing = window.selector.getCanvasRegions ? window.selector.getCanvasRegions() : [];
+                  for(const rr of foundRects){ existing.push(rr); }
+                  window.selector.setRegions(existing);
+                  try{ updatePreviewRedactions(); }catch(e){}
+                  // also add entries into matches list (checkboxes)
+                  for(const rr of foundRects){ const li = document.createElement('li'); li.innerHTML = `<label><input type="checkbox" data-type="image" data-rect='${JSON.stringify(rr)}' checked/> ${phrase}</label>`; matchesList.insertBefore(li, matchesList.firstChild); }
+                }
+              }
+            }catch(err){ console.warn('client OCR mapping failed', err); }
+          }
+        }catch(err){ console.warn('phrase->rect mapping failed', err); }
+        // Do NOT trigger download here; user will click 'Redact' to download.
+      }catch(e){ console.warn(e); }
+    });
+
+    btnCloseRedactMore.addEventListener('click', ()=>{ redactMorePanel.style.display='none'; });
+
+    // when user toggles any match checkbox, immediately apply selected matches to canvas
+    try{ matchesList.addEventListener('change', ()=>{ try{ applySelectedMatchesToCanvas(); }catch(e){} }); }catch(e){}
+
+    const drawHint = document.getElementById('drawHint');
+    // Toggle drawing mode: remain enabled until user cancels or toggles off
+    btnAddRegion.addEventListener('click', ()=>{
+      try{
+        // attach selector overlay if needed
+        try{ window.selector.attach('selectorCanvas'); }catch(e){}
+        const wrapper = document.getElementById('previewWrapper');
+        if(!drawingActive){
+          // enable persistent drawing
+          drawingActive = true;
+          canvas.style.display = 'block';
+          canvas.style.pointerEvents = 'auto';
+          canvas.style.cursor = 'crosshair';
+          if(drawHint) drawHint.style.display = 'block';
+          btnAddRegion.textContent = 'Stop Adding';
+          setStatus('drawing');
+          // ensure background preview remains visible
+          try{ const bg = document.getElementById('bgPreviewCanvas'); if(bg){ bg.style.display='block'; bg.style.zIndex=10; bg.style.opacity=1; if(wrapper) wrapper.style.minHeight = (bg.getBoundingClientRect().height+8)+'px'; } }catch(e){}
+          // add Escape handler once to cancel
+          const onKey = (ev)=>{ if(ev.key === 'Escape'){ drawingActive = false; window.selector.enableEditing(false); canvas.style.pointerEvents='none'; canvas.style.cursor='default'; if(drawHint) drawHint.style.display='none'; btnAddRegion.textContent = 'Add Region'; setStatus('ready'); window.removeEventListener('keydown', onKey); } };
+          window.addEventListener('keydown', onKey);
+          // enable selector editing
+          try{ window.selector.enableEditing(true); }catch(e){}
+        } else {
+          // turn off drawing mode
+          drawingActive = false;
+          try{ window.selector.enableEditing(false); }catch(e){}
+          canvas.style.pointerEvents = 'none';
+          canvas.style.cursor = 'default';
+          if(drawHint) drawHint.style.display = 'none';
+          btnAddRegion.textContent = 'Add Region';
+          setStatus('ready');
+        }
+      }catch(e){ console.warn('toggle drawing', e); }
+    });
+    btnClearRegions.addEventListener('click', ()=>{ try{
+      let regsCanvas = window.selector.getCanvasRegions ? window.selector.getCanvasRegions() : [];
+      if(!regsCanvas) regsCanvas = [];
+      if(regsCanvas.length>0) regsCanvas.pop();
+      // set back to selector (canvas coords accepted)
+      try{ window.selector.setRegions(regsCanvas); }catch(e){}
+      // update regions input to reflect original-coordinate regions
+      try{ const orig = window.selector.getRegions(); document.getElementById('regions').value = JSON.stringify(orig); }catch(e){}
+      setStatus('undo');
+    }catch(e){} });
+
+    // keep regions JSON in sync when selector changes (e.g., after drawing)
+    try{ window.selector.onChange(function(regs){ try{ document.getElementById('regions').value = JSON.stringify(regs); }catch(e){} // update preview redactions when regions change
+      try{ updatePreviewRedactions(); }catch(e){}
+      try{ if(!drawingActive){ canvas.style.pointerEvents='none'; canvas.style.cursor='default'; if(drawHint) drawHint.style.display='none'; setStatus('ready'); } else { setStatus('drawing'); } }catch(e){} }); }catch(e){}
+
+    btnFullscreen.addEventListener('click', ()=>{
+      const w = document.getElementById('previewWrapper');
+      if(!document.fullscreenElement){ w.requestFullscreen && w.requestFullscreen(); } else { document.exitFullscreen && document.exitFullscreen(); }
+    });
+
+    // make fullscreen button show active state and tooltip
+    try{
+      const ff = document.getElementById('btnFullscreen');
+      if(ff){ ff.classList.add('hint'); ff.setAttribute('data-tip','Toggle fullscreen preview'); }
+      document.addEventListener('fullscreenchange', ()=>{
+        try{ if(document.fullscreenElement){ ff && ff.classList.add('active'); } else { ff && ff.classList.remove('active'); } }catch(e){}
+      });
+    }catch(e){}
+
+    // add small tooltips for main action buttons
+    try{
+      const map = {
+        btnDetect: 'Run automatic sensitive-data detection',
+        btnRedactMore: 'Open full extracted text to add phrases',
+        btnAddRegion: 'Enter drawing mode to add regions',
+        btnApplyBelow: 'Apply selected matches to the preview overlay',
+        btnClearRegions: 'Remove the last region',
+        clearRects: 'Clear all regions',
+        delRect: 'Delete selected region'
+      };
+      for(const id in map){ const el = document.getElementById(id); if(el){ el.classList.add('hint'); el.setAttribute('data-tip', map[id]); } }
+    }catch(e){}
+
+    // enhance all buttons/interactive links: add tooltip from title or text, and enable active class on mousedown
+    try{
+      const elems = document.querySelectorAll('.btn, .ghost, button, a.button, .nav a');
+      for(const el of elems){
+        try{
+          if(!el.classList.contains('hint')) el.classList.add('hint');
+          if(!el.getAttribute('data-tip')){
+            const t = (el.getAttribute('title') || el.textContent || el.innerText || '').trim();
+            const short = t.length>60 ? t.slice(0,57)+'...' : t;
+            if(short) el.setAttribute('data-tip', short);
+          }
+          el.addEventListener('mousedown', ()=> el.classList.add('active'));
+          el.addEventListener('mouseup', ()=> el.classList.remove('active'));
+          el.addEventListener('mouseleave', ()=> el.classList.remove('active'));
+        }catch(e){}
+      }
+    }catch(e){}
+
+  })();
   </script>
 </body>
 </html>

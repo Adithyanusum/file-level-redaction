@@ -1,0 +1,102 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>How it works — Redaction</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+  <style>
+    body { background:#071122; color:#e6eef6; font-family:Arial,Helvetica,sans-serif; }
+    .container { max-width:980px; margin:28px auto; padding:20px; }
+    h1 { margin-top:0; }
+    .card { background:#0f2433; padding:18px; border-radius:8px; margin-bottom:12px; }
+    a.button { display:inline-block; padding:8px 12px; background:#1ea4ff; color:#012; border-radius:6px; text-decoration:none; }
+    code, pre { background:#0b1b25; color:#d9f2ff; padding:2px 6px; border-radius:4px; }
+    ul { margin:6px 0 12px 20px }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a href="/" class="button">← Back</a>
+    <h1>How it works</h1>
+    <p class="muted">A concise guide to using the Redaction tool for images, PDFs, Word documents and Excel workbooks.</p>
+
+    <div class="card">
+      <h2>Overview</h2>
+      <p>This tool helps you find and remove sensitive information (emails, phone numbers, account numbers, credit cards, IDs, PHI, API keys, etc.) from files. Upload a file, inspect the automatically detected matches, add any extra phrases you want removed, and download a redacted copy.</p>
+    </div>
+
+    <div class="card">
+      <h2>Supported file types</h2>
+      <ul>
+        <li><strong>Images</strong> — PNG, JPEG, TIFF, BMP. Uses OCR to map text to boxes when possible.</li>
+        <li><strong>PDF</strong> — Text and searchable PDFs; for scanned PDFs we render pages and use OCR/word-box mapping.</li>
+        <li><strong>DOCX</strong> — Scans paragraphs, tables and embedded images. Can blur matched embedded media.</li>
+        <li><strong>XLSX</strong> — Scans worksheets, cells, columns and can redact specified ranges.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>Quick start (recommended sequence)</h2>
+      <ol>
+        <li><strong>Upload</strong>: Click "Upload file" and choose an image, PDF, DOCX or XLSX file.</li>
+        <li><strong>Auto-detect</strong>: Click <em>Auto-detect</em> — the server will scan the file and list likely sensitive matches in the panel on the right.</li>
+        <li><strong>Review matches</strong>: Check/uncheck items in the "Detected matches" list. Checked items will be included when you apply or download the redacted file.</li>
+        <li><strong>Redact more</strong>: Click <em>Redact more</em> to see the full extracted text. Select any phrase (name, ID, account number) and click <em>Add selected phrase</em> to queue it for redaction.</li>
+        <li><strong>Map regions</strong>: If a phrase corresponds to visible text, the system will try to map it to a visual region. You can also draw regions manually with <em>Add Region</em>.</li>
+        <li><strong>Preview</strong>: The preview shows blackout regions applied in-place so you can verify redactions before downloading.</li>
+        <li><strong>Download</strong>: Click <em>Redact</em> (or use the Office-specific redaction button) to download a redacted copy. The original file is not modified.</li>
+      </ol>
+    </div>
+
+    <div class="card">
+      <h2>Button & control reference</h2>
+      <ul>
+        <li><strong>Upload file</strong>: Selects the file to work on.</li>
+        <li><strong>Auto-detect</strong>: Runs the backend scanner to locate common sensitive data using regexes, checksums and contextual heuristics.</li>
+        <li><strong>Redact more</strong>: Opens a full-text extract where you can select phrases and add them to the redaction queue.</li>
+        <li><strong>Add Region</strong>: Enter drawing mode and click/drag to mark rectangular regions to redact visually.</li>
+        <li><strong>Apply selected matches</strong>: Converts checked detected matches into selector regions and updates the preview.</li>
+        <li><strong>Undo</strong>: Removes the last region you added from the canvas.</li>
+        <li><strong>Fullscreen</strong>: Expand the preview area for precise selection.</li>
+        <li><strong>Regions (JSON)</strong>: Advanced: paste JSON like <code>[[x,y,w,h]]</code> or <code>[{"page":0,"rect":[x0,y0,x1,y1]}]</code> to programmatically define redaction areas.</li>
+        <li><strong>Redact / Redact Office File</strong>: Produces a download of the redacted artifact (same tab). For DOCX/XLSX the office-specific button will accept phrases, cells, columns and rows inputs.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>How mapping works</h2>
+      <p>For PDFs the preview renders pages at a fixed preview scale. When you add a phrase the server attempts to locate that phrase on the page (text search + word-box sliding-window fallback) and converts the match into a page rectangle. For images OCR is used to detect words and return bounding boxes; phrases found in OCR results are mapped to those boxes.</p>
+    </div>
+
+    <div class="card">
+      <h2>Office files specifics</h2>
+      <ul>
+        <li><strong>DOCX</strong>: We scan paragraphs, tables and embedded images. Text matches are redacted (replaced with black boxes) and matched embedded images can be blurred (select which media to blur when downloading).</li>
+        <li><strong>XLSX</strong>: You can specify exact cells (e.g. <code>["A1","B2"]</code>), columns (letters or indices), or row ranges to redact. We also scan sheet text for sensitive phrases.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>Tips & best practices</h2>
+      <ul>
+        - Use Auto-detect first to catch common items, then use Redact more to add any missed phrases.
+        - For scanned PDFs, run Auto-detect then inspect results: OCR may miss low-quality scans.
+        - When redacting financial or ID numbers, include separators as users may format them differently (e.g., spaces or dashes).
+        - Review the preview carefully before downloading; downloaded files are the redacted artifacts you distribute.
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>Troubleshooting</h2>
+      <ul>
+        <li>If matches aren’t mapped visually, try drawing a manual region or selecting the phrase in the extract and re-run Auto-detect.</li>
+        <li>If OCR is slow or unavailable on the server, the client will attempt a Tesseract.js fallback for images.</li>
+        <li>If the downloaded file appears unchanged, ensure the checkboxes for matches are selected or that you added explicit phrases/regions before Redact.</li>
+      </ul>
+    </div>
+
+    <footer style="margin-top:18px;color:#8ea8b6">Questions or feedback? Open an issue in the project or contact the maintainer.</footer>
+  </div>
+</body>
+</html>

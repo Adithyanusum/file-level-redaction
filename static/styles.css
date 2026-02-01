@@ -1,1 +1,95 @@
-*{box-sizing:border-box}body{font-family:Inter,system-ui,Arial,Helvetica,sans-serif;background:#f6f9fc;color:#12202b;padding:28px;margin:0}h1{font-size:26px;margin:0 0 12px}button{background:linear-gradient(180deg,#1f78ff,#005bff);color:white;border:none;padding:10px 14px;border-radius:8px;cursor:pointer;transition:transform .12s ease,box-shadow .12s ease}button:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(16,40,80,0.12)}input,select{padding:8px;border:1px solid #d7e1ee;border-radius:6px;width:100%}label{display:block;margin-top:10px}.container{max-width:980px;margin:auto;background:white;padding:20px;border-radius:12px;box-shadow:0 6px 30px rgba(10,20,40,0.04)}small{color:#6a7785}a.link{color:#005bff;text-decoration:none}#selectorCanvas{border-radius:8px}
+:root{
+	--bg:#0f1724;
+	--card:#0b1220;
+	--muted:#9aa4b2;
+	--accent:#3b82f6;
+	--accent-2:#06b6d4;
+	--surface:#0f1724;
+	--glass: rgba(255,255,255,0.04);
+	--radius:12px;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+	margin:0;
+	font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+	background: linear-gradient(180deg,var(--bg),#071020 60%);
+	color:#e6eef8;
+	-webkit-font-smoothing:antialiased;
+	-moz-osx-font-smoothing:grayscale;
+	line-height:1.4;
+}
+
+.container{max-width:1100px;margin:0 auto;padding:28px}
+
+/* Header / Nav */
+.site-header{display:flex;align-items:center;justify-content:space-between;padding:18px 0}
+.brand{display:flex;align-items:center;gap:12px;font-weight:700;font-size:18px}
+.brand .logo{width:40px;height:40px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:inline-block}
+.nav{display:flex;gap:18px;align-items:center}
+.nav a{color:var(--muted);text-decoration:none;padding:8px 12px;border-radius:8px}
+.nav a:hover{color:#fff;background:rgba(255,255,255,0.03)}
+
+/* Hero */
+.hero{display:grid;grid-template-columns:1fr 420px;gap:36px;align-items:center;padding:36px 0}
+.hero h1{font-size:40px;margin:0;line-height:1.05}
+.hero p{color:var(--muted);margin-top:12px;font-size:16px}
+.hero-cta{margin-top:20px;display:flex;gap:12px}
+.btn{display:inline-flex;align-items:center;gap:10px;padding:12px 18px;border-radius:10px;background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#001025;border:none;cursor:pointer;font-weight:600}
+.btn.secondary{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted)}
+/* Interactive button affordances */
+.btn, .ghost { transition: transform 120ms ease, box-shadow 160ms ease, background-color 120ms ease, filter 120ms ease; }
+.btn:hover { transform: translateY(-4px) scale(1.02); box-shadow: 0 18px 50px rgba(3,7,18,0.75); filter: brightness(1.03); }
+.btn:active { transform: translateY(-1px) scale(0.995); }
+.ghost:hover { transform: translateY(-3px); background: rgba(255,255,255,0.04); color:#fff; box-shadow: 0 8px 24px rgba(2,6,23,0.45); }
+.ghost:active { transform: translateY(0); }
+.btn:focus, .ghost:focus { outline: none; box-shadow: 0 0 0 6px rgba(59,130,246,0.06); }
+
+/* Small indicator for active fullscreen / drawing state */
+.btn.active { box-shadow: 0 12px 34px rgba(2,6,23,0.7), 0 0 0 4px rgba(59,130,246,0.06); transform: translateY(-2px); }
+
+/* Tooltip helper (used by JS titles) */
+.hint { position:relative }
+.hint[data-tip]:hover::after{ content: attr(data-tip); position:absolute; left:50%; transform:translateX(-50%); bottom:calc(100% + 10px); background:rgba(0,0,0,0.8); color:#fff; padding:6px 8px; border-radius:6px; white-space:nowrap; font-size:12px; z-index:9999 }
+
+/* Card */
+.card{background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));border-radius:var(--radius);padding:22px;box-shadow:0 6px 30px rgba(2,6,23,0.6);border:1px solid rgba(255,255,255,0.03)}
+
+/* Features */
+.features{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:28px}
+.feature{padding:18px;border-radius:12px;background:var(--glass);min-height:120px}
+.feature h3{margin:0 0 8px 0}
+.feature p{margin:0;color:var(--muted);font-size:14px}
+
+/* Login form */
+.auth-wrapper{display:flex;align-items:center;justify-content:center;min-height:60vh}
+.auth-card{width:100%;max-width:420px}
+.form-group{margin-bottom:14px}
+.form-label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+.form-input{width:100%;padding:12px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:#e7f0fb}
+.form-input:focus{outline:none;box-shadow:0 0 0 4px rgba(59,130,246,0.09);border-color:rgba(59,130,246,0.9)}
+
+.muted{color:var(--muted);font-size:13px}
+
+/* Footer */
+.site-footer{margin-top:48px;padding:28px 0;color:var(--muted);font-size:13px;border-top:1px solid rgba(255,255,255,0.02)}
+
+/* Responsive */
+@media (max-width:900px){
+	.hero{grid-template-columns:1fr}
+	.features{grid-template-columns:1fr 1fr}
+}
+@media (max-width:600px){
+	.features{grid-template-columns:1fr}
+	.brand{font-size:16px}
+}
+
+/* small helpers */
+.ghost{background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--muted);padding:8px 12px;border-radius:8px}
+
+/* selection highlights for office preview */
+.selected-row td, .selected-row th { background: rgba(255, 0, 0, 0.12) !important; }
+.selected-col, .selected-col td, .selected-col th { background: rgba(255, 0, 0, 0.12) !important; }
+
+

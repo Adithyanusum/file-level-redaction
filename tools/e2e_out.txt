@@ -1,0 +1,61 @@
+WROTE test_sensitive.docx
+HEALTH 200 {"status":"ok"}
+
+POST /detect
+status 200
+{
+  "text_matches": [
+    {
+      "match": "123-45-6789",
+      "category": "ssn"
+    },
+    {
+      "match": "4111 1111 1111 1111",
+      "category": "credit_card"
+    },
+    {
+      "match": "021000021",
+      "category": "account"
+    },
+    {
+      "match": "021000021",
+      "category": "routing"
+    },
+    {
+      "match": "021000021",
+      "category": "digit_sequence"
+    },
+    {
+      "match": "12-34-56",
+      "category": "sort_code"
+    },
+    {
+      "match": "secret123",
+      "category": "credential"
+    },
+    {
+      "match": "462345",
+      "category": "otp"
+    },
+    {
+      "match": "A1234567",
+      "category": "passport"
+    },
+    {
+      "match": "Diagnosis: patient has hypertension",
+      "category": "health_info"
+    },
+    {
+      "match": "Fingerprint: fingerprint sample",
+      "category": "biometric"
+    }
+  ],
+  "images": [],
+  "image_matches": []
+}
+
+POST /redact/auto -> saving redacted_test_sensitive.docx
+status 200 headers: {'date': 'Sun, 01 Feb 2026 08:36:52 GMT', 'server': 'uvicorn', 'content-disposition': 'attachment; filename="redacted-test_sensitive.docx"', 'content-type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'transfer-encoding': 'chunked'}
+Saved redacted_test_sensitive.docx size unknown
+
+Done
