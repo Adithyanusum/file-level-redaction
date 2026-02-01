@@ -1,9 +1,16 @@
-import pytest
+import requests
+import os
 
+def test_image_redaction(base_url):
+    file_path = "test_data/sample_sensitive.png"
+    assert os.path.exists(file_path)
 
-def test_ocr_image_mapping(fixtures_dir, tmp_path):
-    pytest.skip("skeleton: implement OCR image mapping tests (clear image fixture)")
+    with open(file_path, "rb") as f:
+        response = requests.post(
+            f"{base_url}/redact/image",
+            files={"file": f},
+            data={"mode": "blackout"}
+        )
 
-
-def test_rotated_text_ocr(fixtures_dir):
-    pytest.skip("skeleton: implement rotated/tiny-font OCR test")
+    assert response.status_code == 200
+    print("Image redaction test PASSED")
